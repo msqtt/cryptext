@@ -23,7 +23,8 @@ export default function App() {
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isExplorerOpen, setIsExplorerOpen] = useState(true);
+  const [isExplorerOpen, setIsExplorerOpen] = useState(window.innerWidth >= 1024);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   const [text, setText] = useState('');
   const [originalText, setOriginalText] = useState('__LOADING__');
   const [fileSha, setFileSha] = useState<string | null>(null);
@@ -33,6 +34,18 @@ export default function App() {
 
   const [viewMode, setViewMode] = useState<'editor' | 'split' | 'preview'>('editor');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 768;
+      setIsMobile(mobile);
+      if (mobile && isExplorerOpen) {
+        // Just leave it as is if they explicitly opened it, but usually we'd want it closed on initial resize to mobile
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -302,7 +315,7 @@ export default function App() {
       
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-6 border-b border-zinc-200 dark:border-[#2D3139] bg-white dark:bg-[#16191E] shrink-0">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
           <button 
             onClick={() => setIsExplorerOpen(!isExplorerOpen)}
             className="p-1.5 -ml-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 rounded transition-colors"
@@ -310,21 +323,21 @@ export default function App() {
           >
             {isExplorerOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeft className="w-5 h-5" />}
           </button>
-          <div className="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center shrink-0">
+          <div className="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center shrink-0 hidden sm:flex">
             <span className="font-bold text-white">C</span>
           </div>
-          <div>
-            <h1 className="text-lg font-semibold tracking-tight text-zinc-900 dark:text-[#E0E0E0] leading-tight">
-              {t.title} <span className="text-zinc-500 dark:text-[#6B7280] font-normal text-sm ml-2">v1.3.0</span>
+          <div className="truncate">
+            <h1 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900 dark:text-[#E0E0E0] leading-tight truncate">
+              {t.title} <span className="text-zinc-500 dark:text-[#6B7280] font-normal text-xs sm:text-sm ml-1 sm:ml-2">v1.3.0</span>
             </h1>
           </div>
         </div>
         
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2 sm:gap-6">
           
           {/* Status Indicator */}
           {status !== 'idle' && (
-            <div className={`text-xs font-mono flex items-center gap-2 px-3 py-1 rounded-full border ${
+            <div className={`text-[10px] sm:text-xs font-mono flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1 rounded-full border ${
               status === 'error' ? 'bg-red-500/10 text-red-500 dark:text-red-400 border-red-500/20' :
               status === 'success' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' :
               'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20'
@@ -392,28 +405,32 @@ export default function App() {
       </header>
 
       {/* Toolbar */}
-      <div className="h-12 border-b border-zinc-200 dark:border-[#2D3139] flex items-center justify-between px-6 bg-white dark:bg-[#16191E] shrink-0">
-        <div className="flex space-x-6 text-sm h-full">
+      <div className="h-12 border-b border-zinc-200 dark:border-[#2D3139] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-[#16191E] shrink-0">
+        <div className="flex space-x-4 sm:space-x-6 text-xs sm:text-sm h-full">
           <button 
             onClick={() => setViewMode('editor')}
             className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'editor' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
           >
             <Type className="w-4 h-4" />
-            {t.editor}
+            <span className={isMobile ? 'hidden' : 'inline'}>{t.editor}</span>
+            {isMobile && <span>Edit</span>}
           </button>
-          <button 
-            onClick={() => setViewMode('split')}
-            className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'split' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
-          >
-            <Columns className="w-4 h-4" />
-            {t.split || 'Split'}
-          </button>
+          {(!isMobile) && (
+            <button 
+              onClick={() => setViewMode('split')}
+              className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'split' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+            >
+              <Columns className="w-4 h-4" />
+              {t.split || 'Split'}
+            </button>
+          )}
           <button 
             onClick={() => setViewMode('preview')}
             className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'preview' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
           >
             <Eye className="w-4 h-4" />
-            {t.preview}
+            <span className={isMobile ? 'hidden' : 'inline'}>{t.preview}</span>
+            {isMobile && <span>View</span>}
           </button>
         </div>
         <div className="relative">
@@ -436,24 +453,40 @@ export default function App() {
       </div>
 
       {/* Main Layout Area */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* File Tree Sidebar */}
-        {isExplorerOpen && (
+        <div className={`
+          ${isMobile ? 'absolute inset-y-0 left-0 z-30 shadow-2xl transition-transform duration-300 ease-in-out' : 'relative'}
+          ${isExplorerOpen ? 'translate-x-0' : '-translate-x-full absolute'}
+          ${!isMobile && !isExplorerOpen ? 'hidden' : ''}
+          h-full bg-inherit
+        `}>
           <FileTree 
             config={config} 
-            onSelectFile={handleSelectFile} 
+            onSelectFile={(path) => {
+              handleSelectFile(path);
+              if (isMobile) setIsExplorerOpen(false);
+            }} 
             activeFile={config.filePath} 
+          />
+        </div>
+
+        {/* Explorer Overlay for Mobile */}
+        {isMobile && isExplorerOpen && (
+          <div 
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm z-20"
+            onClick={() => setIsExplorerOpen(false)}
           />
         )}
 
         {/* Main Editor */}
         <main className="flex-1 flex bg-white dark:bg-[#0A0C0E] overflow-hidden relative">
-          {(viewMode === 'editor' || viewMode === 'split') && (
+          {((viewMode === 'editor' || viewMode === 'split') && (!isMobile || viewMode !== 'preview')) && (
             <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
               <Editor
                 value={text}
                 onChange={handleTextChange}
-                className="w-full h-full text-base [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-6"
+                className="w-full h-full text-base [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
                 editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
                 vimMode={config.vimMode}
                 vimKeyBindings={config.vimKeyBindings}
@@ -462,8 +495,8 @@ export default function App() {
             </div>
           )}
 
-          {(viewMode === 'split' || viewMode === 'preview') && (
-            <div className={`p-6 overflow-y-auto ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1 lg:px-20'}`}>
+          {((viewMode === 'split' || viewMode === 'preview') && (!isMobile || viewMode === 'preview')) && (
+            <div className={`p-4 sm:p-6 overflow-y-auto ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1 lg:px-20'}`}>
               {config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
                 <div className={`prose prose-zinc dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
                     prose-headings:font-semibold prose-a:text-indigo-500 
@@ -516,19 +549,19 @@ export default function App() {
       </div>
 
       {/* Footer Bar */}
-      <footer className="h-8 bg-zinc-50 dark:bg-[#16191E] border-t border-zinc-200 dark:border-[#2D3139] px-4 flex items-center justify-between text-[10px] text-zinc-500 dark:text-gray-500 font-mono shrink-0">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center gap-1.5 uppercase">
+      <footer className="h-8 bg-zinc-50 dark:bg-[#16191E] border-t border-zinc-200 dark:border-[#2D3139] px-4 flex items-center justify-between text-[9px] sm:text-[10px] text-zinc-500 dark:text-gray-500 font-mono shrink-0">
+        <div className="flex items-center space-x-2 sm:space-x-4">
+          <div className="flex items-center gap-1 sm:gap-1.5 uppercase shrink-0">
             <span className={`w-1.5 h-1.5 rounded-full ${fileSha ? 'bg-indigo-500' : 'bg-zinc-400 dark:bg-gray-500'}`}></span>
-            <span>{t.storage}</span>
+            <span className="hidden sm:inline">{t.storage}</span>
           </div>
-          <div>{config.encryptionKey ? t.aesActive : t.aesInactive}</div>
+          <div className="truncate max-w-[80px] sm:max-w-none">{config.encryptionKey ? t.aesActive : t.aesInactive}</div>
         </div>
-        <div className="flex items-center space-x-4">
-          <span>{t.lines} {text ? text.split('\n').length : 0}</span>
-          <span>{t.chars} {text.length}</span>
-          <span>UTF-8</span>
-          <span className="text-indigo-600 dark:text-indigo-400">{t.encryptionStatus}</span>
+        <div className="flex items-center space-x-2 sm:space-x-4 overflow-hidden">
+          <span className="truncate">{t.lines} {text ? text.split('\n').length : 0}</span>
+          <span className="hidden sm:inline">{t.chars} {text.length}</span>
+          <span className="hidden md:inline">UTF-8</span>
+          <span className="text-indigo-600 dark:text-indigo-400 hidden sm:inline">{t.encryptionStatus}</span>
         </div>
       </footer>
 

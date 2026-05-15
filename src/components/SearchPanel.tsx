@@ -142,7 +142,7 @@ export function SearchPanel({ config, onClose, onSelectFile }: SearchPanelProps)
   }, [query]);
 
   return (
-    <div className="absolute left-64 top-14 w-96 max-h-[80vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg shadow-2xl z-50 overflow-hidden">
+    <div className="absolute left-0 sm:left-64 top-14 w-full sm:w-96 max-h-[80vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-none sm:rounded-lg shadow-2xl z-50 overflow-hidden">
       <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800">
         <Search className="w-4 h-4 text-zinc-400" />
         <input

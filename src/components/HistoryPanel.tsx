@@ -57,7 +57,7 @@ export function HistoryPanel({ config, isOpen, onClose, onSelectVersion, current
   if (!isOpen) return null;
 
   return (
-    <div className="absolute inset-y-0 right-0 w-80 bg-zinc-50 dark:bg-[#0F1115] border-l border-zinc-200 dark:border-[#2D3139] shadow-2xl z-50 flex flex-col transform transition-transform duration-300 text-zinc-900 dark:text-[#E0E0E0]">
+    <div className="absolute inset-y-0 right-0 w-full sm:w-80 bg-zinc-50 dark:bg-[#0F1115] border-l border-zinc-200 dark:border-[#2D3139] shadow-2xl z-50 flex flex-col transform transition-transform duration-300 text-zinc-900 dark:text-[#E0E0E0]">
       <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-[#2D3139] bg-white dark:bg-[#16191E]">
         <h2 className="font-semibold flex items-center gap-2">
           <History className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
