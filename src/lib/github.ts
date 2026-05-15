@@ -103,6 +103,171 @@ export async function saveFileToGithub(
   return response.data.content!.sha;
 }
 
+export async function deletePathFromGithub(
+  config: GithubConfig,
+  pathToDelete: string,
+  isDirectory: boolean
+): Promise<void> {
+  const { githubToken, repoUrl, branch, encryptionKey } = config;
+  const { owner: repoOwner, repo: repoName } = parseRepoInfo(repoUrl);
+  if (!githubToken || !repoOwner || !repoName) return;
+
+  const octokit = new Octokit({ auth: githubToken });
+
+  if (isDirectory) {
+    const tree = await getRepoTree(config);
+    const prefix = pathToDelete + '/';
+    const filesToDelete = tree.filter(item => item.type === 'blob' && item.path?.startsWith(prefix));
+    
+    for (const file of filesToDelete) {
+      if (!file.path) continue;
+      const actualPath = encryptionKey ? encryptFileName(file.path, encryptionKey) : file.path;
+      try {
+        const fileRes = await octokit.rest.repos.getContent({
+          owner: repoOwner,
+          repo: repoName,
+          path: actualPath,
+          ref: branch || 'main'
+        });
+        if (!Array.isArray(fileRes.data)) {
+          await octokit.rest.repos.deleteFile({
+            owner: repoOwner,
+            repo: repoName,
+            path: actualPath,
+            message: `Delete ${file.path}`,
+            sha: fileRes.data.sha,
+            branch: branch || 'main'
+          });
+        }
+      } catch(e) {
+        console.error("Error deleting", file.path, e);
+      }
+    }
+  } else {
+    const actualPath = encryptionKey ? encryptFileName(pathToDelete, encryptionKey) : pathToDelete;
+    try {
+      const res = await octokit.rest.repos.getContent({
+        owner: repoOwner,
+        repo: repoName,
+        path: actualPath,
+        ref: branch || 'main'
+      });
+      if (!Array.isArray(res.data) && res.data.type === 'file') {
+        await octokit.rest.repos.deleteFile({
+          owner: repoOwner,
+          repo: repoName,
+          path: actualPath,
+          message: `Delete ${pathToDelete}`,
+          sha: res.data.sha,
+          branch: branch || 'main'
+        });
+      }
+    } catch (e: any) {
+      if (e.status !== 404) throw e;
+    }
+  }
+}
+
+export async function renamePathInGithub(
+  config: GithubConfig,
+  oldPath: string,
+  newPath: string,
+  isDirectory: boolean
+): Promise<void> {
+  const { githubToken, repoUrl, branch, encryptionKey } = config;
+  const { owner: repoOwner, repo: repoName } = parseRepoInfo(repoUrl);
+  if (!githubToken || !repoOwner || !repoName) return;
+
+  const octokit = new Octokit({ auth: githubToken });
+
+  if (isDirectory) {
+    // Get entire tree to find all files starting with oldPath
+    const tree = await getRepoTree(config);
+    const prefix = oldPath + '/';
+    const filesToMove = tree.filter(item => item.type === 'blob' && item.path?.startsWith(prefix));
+    
+    for (const file of filesToMove) {
+      if (!file.path) continue;
+      const oldFilePath = file.path;
+      const newFilePath = newPath + '/' + oldFilePath.substring(prefix.length);
+      
+      // Get content of old file
+      const oldActualPath = encryptionKey ? encryptFileName(oldFilePath, encryptionKey) : oldFilePath;
+      const newActualPath = encryptionKey ? encryptFileName(newFilePath, encryptionKey) : newFilePath;
+      
+      try {
+        const fileRes = await octokit.rest.repos.getContent({
+          owner: repoOwner,
+          repo: repoName,
+          path: oldActualPath,
+          ref: branch || 'main'
+        });
+        
+        if (!Array.isArray(fileRes.data) && fileRes.data.content) {
+          // create new file
+          await octokit.rest.repos.createOrUpdateFileContents({
+            owner: repoOwner,
+            repo: repoName,
+            path: newActualPath,
+            message: `Rename ${oldFilePath} to ${newFilePath}`,
+            content: fileRes.data.content, // already base64
+            branch: branch || 'main'
+          });
+          
+          // delete old file
+          await octokit.rest.repos.deleteFile({
+            owner: repoOwner,
+            repo: repoName,
+            path: oldActualPath,
+            message: `Delete old ${oldFilePath}`,
+            sha: fileRes.data.sha,
+            branch: branch || 'main'
+          });
+        }
+      } catch(e) {
+        console.error("Error moving file", oldFilePath, e);
+      }
+    }
+  } else {
+    // Single file
+    const oldActualPath = encryptionKey ? encryptFileName(oldPath, encryptionKey) : oldPath;
+    const newActualPath = encryptionKey ? encryptFileName(newPath, encryptionKey) : newPath;
+    
+    try {
+      const fileRes = await octokit.rest.repos.getContent({
+        owner: repoOwner,
+        repo: repoName,
+        path: oldActualPath,
+        ref: branch || 'main'
+      });
+      
+      if (!Array.isArray(fileRes.data) && fileRes.data.content) {
+        // create new file
+        await octokit.rest.repos.createOrUpdateFileContents({
+          owner: repoOwner,
+          repo: repoName,
+          path: newActualPath,
+          message: `Rename ${oldPath} to ${newPath}`,
+          content: fileRes.data.content,
+          branch: branch || 'main'
+        });
+        
+        // delete old file
+        await octokit.rest.repos.deleteFile({
+          owner: repoOwner,
+          repo: repoName,
+          path: oldActualPath,
+          message: `Delete old ${oldPath}`,
+          sha: fileRes.data.sha,
+          branch: branch || 'main'
+        });
+      }
+    } catch(e) {
+      console.error("Error renaming file", oldPath, e);
+    }
+  }
+}
+
 export async function getRepoTree(config: GithubConfig): Promise<any[]> {
   const { githubToken, repoUrl, branch, encryptionKey } = config;
   const { owner: repoOwner, repo: repoName } = parseRepoInfo(repoUrl);

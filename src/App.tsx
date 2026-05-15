@@ -14,6 +14,8 @@ import remarkGfm from 'remark-gfm';
 import EmojiPicker from 'emoji-picker-react';
 import { MermaidBlock } from './components/MermaidBlock';
 import { PlantUMLBlock } from './components/PlantUMLBlock';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 export default function App() {
   const { config, updateConfig } = useConfig();
@@ -296,7 +298,7 @@ export default function App() {
   const hasChanges = text !== originalText && originalText !== '__LOADING__';
 
   return (
-    <div className="w-full h-full bg-zinc-50 dark:bg-[#0F1115] text-zinc-900 dark:text-[#E0E0E0] font-sans flex flex-col overflow-hidden selection:bg-indigo-500/30 selection:text-indigo-200">
+    <div className="w-full h-full bg-zinc-50 dark:bg-[#0F1115] text-zinc-900 dark:text-[#E0E0E0] font-sans flex flex-col overflow-hidden selection:bg-indigo-200 dark:selection:bg-indigo-500/40">
       
       {/* Header */}
       <header className="h-14 flex items-center justify-between px-6 border-b border-zinc-200 dark:border-[#2D3139] bg-white dark:bg-[#16191E] shrink-0">
@@ -461,34 +463,50 @@ export default function App() {
                 themeType={config.theme}
               />
               <div className="flex-1 w-1/2 p-6 overflow-y-auto">
-                <div className="prose prose-zinc dark:prose-invert max-w-none 
-                    prose-headings:font-semibold prose-a:text-indigo-500 
-                    prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
-                    prose-code:before:content-none prose-code:after:content-none
-                    prose-pre:bg-zinc-100 dark:prose-pre:bg-zinc-900 prose-pre:border prose-pre:border-zinc-200 dark:prose-pre:border-zinc-800">
-                  <Markdown 
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      code({node, inline, className, children, ...props}: any) {
-                        const match = /language-(\w+)/.exec(className || '')
-                        const lang = match ? match[1] : ''
-                        if (!inline && lang === 'mermaid') {
-                          return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
+                {config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
+                  <div className="prose prose-zinc dark:prose-invert max-w-none 
+                      prose-headings:font-semibold prose-a:text-indigo-500 
+                      prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
+                      prose-code:before:content-none prose-code:after:content-none
+                      prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none">
+                    <Markdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        code({node, inline, className, children, ...props}: any) {
+                          const match = /language-(\w+)/.exec(className || '')
+                          const lang = match ? match[1] : ''
+                          if (!inline && lang === 'mermaid') {
+                            return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
+                          }
+                          if (!inline && (lang === 'plantuml' || lang === 'puml')) {
+                            return <PlantUMLBlock code={String(children).replace(/\n$/, '')} />
+                          }
+                          return !inline && match ? (
+                            <SyntaxHighlighter
+                              style={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? vscDarkPlus as any : vs as any}
+                              language={lang}
+                              PreTag="div"
+                              className="rounded-md border border-zinc-200 dark:border-zinc-800 !my-0 !bg-zinc-50 dark:!bg-[#111318]"
+                              {...props}
+                            >
+                              {String(children).replace(/\n$/, '')}
+                            </SyntaxHighlighter>
+                          ) : (
+                            <code className={className} {...props}>
+                              {children}
+                            </code>
+                          )
                         }
-                        if (!inline && (lang === 'plantuml' || lang === 'puml')) {
-                          return <PlantUMLBlock code={String(children).replace(/\n$/, '')} />
-                        }
-                        return (
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        )
-                      }
-                    }}
-                  >
-                    {text || '*No content to preview*'}
-                  </Markdown>
-                </div>
+                      }}
+                    >
+                      {text || '*No content to preview*'}
+                    </Markdown>
+                  </div>
+                ) : (
+                  <pre className="font-mono text-sm whitespace-pre-wrap text-zinc-800 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-md border border-zinc-200 dark:border-zinc-800">
+                    {text || 'No content'}
+                  </pre>
+                )}
               </div>
             </div>
           )}

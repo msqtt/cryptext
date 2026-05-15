@@ -161,21 +161,6 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
               <GitBranch className="w-4 h-4 absolute left-3 top-2.5 text-zinc-400 dark:text-gray-500" />
             </div>
           </div>
-
-          <div className="space-y-2">
-            <label className="text-xs text-zinc-600 dark:text-gray-400 block ml-1">{t.filePath}</label>
-            <div className="relative">
-              <input
-                type="text"
-                name="filePath"
-                value={config.filePath}
-                onChange={handleChange}
-                placeholder="notes.txt"
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-sm text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-              />
-              <FileText className="w-4 h-4 absolute left-3 top-2.5 text-zinc-400 dark:text-gray-500" />
-            </div>
-          </div>
         </div>
 
         <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-[#2D3139]">

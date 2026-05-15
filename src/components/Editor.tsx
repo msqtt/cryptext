@@ -4,7 +4,8 @@ import { vim, Vim } from '@replit/codemirror-vim';
 import { autocompletion, CompletionContext } from '@codemirror/autocomplete';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { githubLight } from '@uiw/codemirror-theme-github';
-import * as emoji from 'node-emoji';
+import * as emojiModule from 'node-emoji';
+const emoji = (emojiModule as any).default || emojiModule;
 import { markdown } from '@codemirror/lang-markdown';
 
 export interface EditorProps extends ReactCodeMirrorProps {

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AppConfig } from '../hooks/useConfig';
-import { getRepoTree } from '../lib/github';
-import { FolderOpen, FileText, ChevronRight, ChevronDown, Plus, RefreshCw, File } from 'lucide-react';
+import { getRepoTree, renamePathInGithub, deletePathFromGithub } from '../lib/github';
+import { FolderOpen, FileText, ChevronRight, ChevronDown, Plus, RefreshCw, File, Edit2, Trash2, Check, X } from 'lucide-react';
 
 interface FileTreeProps {
   config: AppConfig;
@@ -23,6 +23,16 @@ const addLocalFile = (path: string) => {
   localStorage.setItem('cryptext_local_files', JSON.stringify(Array.from(files)));
 };
 
+const removeLocalFile = (path: string) => {
+  const files = new Set(getLocalFiles());
+  files.delete(path);
+  // Also remove starting with path/ if folder
+  for (const f of files) {
+    if (f.startsWith(path + '/')) files.delete(f);
+  }
+  localStorage.setItem('cryptext_local_files', JSON.stringify(Array.from(files)));
+};
+
 export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
   const [tree, setTree] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -31,6 +41,11 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
   const [showNewFileInput, setShowNewFileInput] = useState(false);
   const [newFileType, setNewFileType] = useState<'file' | 'folder'>('file');
   const [newFilePath, setNewFilePath] = useState('');
+
+  // Rename state
+  const [renamingPath, setRenamingPath] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const [isRenaming, setIsRenaming] = useState(false);
 
   const loadTree = async () => {
     setLoading(true);
@@ -104,6 +119,67 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
     loadTree();
   };
 
+  const handleDelete = async (path: string, isDirectory: boolean) => {
+    if (!confirm(`Are you sure you want to delete ${isDirectory ? 'folder' : 'file'}: ${path}?`)) return;
+    
+    removeLocalFile(path);
+    
+    if (config.githubToken && config.repoUrl) {
+      setLoading(true);
+      try {
+        await deletePathFromGithub(config, path, isDirectory);
+        if (activeFile === path || activeFile.startsWith(path + '/')) {
+          onSelectFile(''); // clear active file
+        }
+      } catch (e: any) {
+        setError('Failed to delete: ' + e.message);
+      }
+      loadTree();
+    } else {
+       loadTree();
+    }
+  };
+
+  const startRename = (path: string) => {
+    setRenamingPath(path);
+    const parts = path.split('/');
+    setRenameValue(parts[parts.length - 1]);
+  };
+
+  const submitRename = async (path: string, isDirectory: boolean) => {
+    if (!renameValue || renameValue.trim() === '') {
+      setRenamingPath(null);
+      return;
+    }
+    const parts = path.split('/');
+    parts.pop();
+    const newPath = (parts.length > 0 ? parts.join('/') + '/' : '') + renameValue;
+    
+    if (newPath === path) {
+      setRenamingPath(null);
+      return;
+    }
+
+    setIsRenaming(true);
+    try {
+      if (config.githubToken && config.repoUrl) {
+        await renamePathInGithub(config, path, newPath, isDirectory);
+      }
+      // update local storage logic if needed
+      removeLocalFile(path);
+      addLocalFile(newPath); // approximate, doesn't add children
+      
+      if (activeFile === path || activeFile.startsWith(path + '/')) {
+         onSelectFile(''); // better edge cases just clearing the active open
+      }
+      await loadTree();
+    } catch(e: any) {
+      setError('Failed to rename: ' + e.message);
+    }
+    setIsRenaming(false);
+    setRenamingPath(null);
+  };
+
   // Build a nested structure
   const buildNestedTree = (flatTree: any[]) => {
     const root: any = { children: {} };
@@ -137,19 +213,51 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
     return sortedNodes.map((node: any) => {
       const isExpanded = expandedFolders.has(node.path);
       const isActive = activeFile === node.path;
+      const isRenamingThis = renamingPath === node.path;
       
       if (node.type === 'tree') {
         return (
           <div key={node.path}>
-            <button
-              onClick={() => toggleFolder(node.path)}
-              className={`w-full flex items-center gap-1.5 py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-zinc-600 dark:text-zinc-400 group`}
-              style={{ paddingLeft: `${depth * 12 + 8}px` }}
-            >
-              {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-              <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
-              <span className="text-sm truncate w-full text-left group-hover:text-zinc-900 dark:group-hover:text-zinc-200">{node.name}</span>
-            </button>
+            <div className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-sm group`} style={{ paddingLeft: `${depth * 12 + 8}px` }}>
+              <button
+                onClick={() => toggleFolder(node.path)}
+                className="flex items-center gap-1.5 flex-1 truncate text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
+              >
+                {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
+                
+                {isRenamingThis ? (
+                  <input 
+                    type="text" 
+                    value={renameValue} 
+                    onChange={e => setRenameValue(e.target.value)}
+                    onClick={e => e.stopPropagation()}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') submitRename(node.path, true);
+                      if (e.key === 'Escape') setRenamingPath(null);
+                    }}
+                    disabled={isRenaming}
+                    className="flex-1 bg-white dark:bg-zinc-900 border border-indigo-500 rounded px-1 -ml-1 text-xs"
+                    autoFocus
+                  />
+                ) : (
+                  <span className="truncate w-full text-left">{node.name}</span>
+                )}
+              </button>
+
+              {!isRenamingThis && (
+                <div className="hidden group-hover:flex items-center space-x-1 pl-1">
+                  <button onClick={() => startRename(node.path)} className="text-zinc-400 hover:text-indigo-500"><Edit2 className="w-3 h-3" /></button>
+                  <button onClick={() => handleDelete(node.path, true)} className="text-zinc-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                </div>
+              )}
+              {isRenamingThis && (
+                <div className="flex items-center space-x-1 pl-1">
+                  <button onClick={() => submitRename(node.path, true)} className="text-green-500" disabled={isRenaming}><Check className="w-3 h-3" /></button>
+                  <button onClick={() => setRenamingPath(null)} className="text-red-500" disabled={isRenaming}><X className="w-3 h-3" /></button>
+                </div>
+              )}
+            </div>
             {isExpanded && renderTree(node.children, depth + 1)}
           </div>
         );
@@ -158,18 +266,49 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       if (node.type !== 'tree' && node.name === '.keep') return null;
 
       return (
-        <button
+        <div 
           key={node.path}
-          onClick={() => onSelectFile(node.path)}
-          className={`w-full flex items-center gap-2 py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-sm truncate text-left
-            ${isActive ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'}
-          `}
+          className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-sm group ${isActive ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'}`}
           style={{ paddingLeft: `${depth * 12 + 24}px` }}
-          title={node.path}
         >
-          <FileText className="w-3 h-3 shrink-0 opacity-70" />
-          <span className="truncate">{node.name}</span>
-        </button>
+          <button
+            onClick={() => onSelectFile(node.path)}
+            className={`flex items-center gap-2 flex-1 truncate text-left hover:text-zinc-900 dark:hover:text-zinc-200`}
+            title={node.path}
+          >
+            <FileText className="w-3 h-3 shrink-0 opacity-70" />
+            {isRenamingThis ? (
+               <input 
+                 type="text" 
+                 value={renameValue} 
+                 onChange={e => setRenameValue(e.target.value)}
+                 onClick={e => e.stopPropagation()}
+                 onKeyDown={e => {
+                   if (e.key === 'Enter') submitRename(node.path, false);
+                   if (e.key === 'Escape') setRenamingPath(null);
+                 }}
+                 disabled={isRenaming}
+                 className="flex-1 bg-white dark:bg-zinc-900 border border-indigo-500 rounded px-1 -ml-1 text-xs"
+                 autoFocus
+               />
+            ) : (
+               <span className="truncate">{node.name}</span>
+            )}
+          </button>
+          
+          {!isRenamingThis && (
+            <div className="hidden group-hover:flex items-center space-x-1 pl-1">
+              <button onClick={() => startRename(node.path)} className="text-zinc-400 hover:text-indigo-500"><Edit2 className="w-3 h-3" /></button>
+              <button onClick={() => handleDelete(node.path, false)} className="text-zinc-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+            </div>
+          )}
+          {isRenamingThis && (
+            <div className="flex items-center space-x-1 pl-1">
+              <button onClick={() => submitRename(node.path, false)} className="text-green-500" disabled={isRenaming}><Check className="w-3 h-3" /></button>
+              <button onClick={() => setRenamingPath(null)} className="text-red-500" disabled={isRenaming}><X className="w-3 h-3" /></button>
+            </div>
+          )}
+        </div>
       );
     });
   };
@@ -180,13 +319,13 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
     <div className="w-64 border-r border-zinc-200 dark:border-[#2D3139] bg-zinc-50 dark:bg-[#16191E] flex flex-col h-full shrink-0">
       <div className="h-12 border-b border-zinc-200 dark:border-[#2D3139] flex items-center justify-between px-3 shrink-0">
         <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-gray-500">Explorer</span>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1 justify-end max-w-full overflow-hidden">
           <button 
             onClick={() => {
               setNewFileType('file');
               setShowNewFileInput(true);
             }}
-            className="p-1 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 transition-colors"
+            className="p-1 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 transition-colors shrink-0"
             title="New File"
           >
             <File className="w-4 h-4" />
@@ -196,17 +335,17 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
               setNewFileType('folder');
               setShowNewFileInput(true);
             }}
-            className="p-1 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 transition-colors"
+            className="p-1 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 transition-colors shrink-0"
             title="New Folder"
           >
             <FolderOpen className="w-4 h-4" />
           </button>
           <button 
             onClick={loadTree}
-            className="p-1 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 transition-colors"
+            className="p-1 rounded text-zinc-500 hover:text-zinc-900 hover:bg-zinc-200 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 transition-colors shrink-0"
             title="Refresh"
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${loading && !isRenaming ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
@@ -221,13 +360,15 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
               onChange={e => setNewFilePath(e.target.value)}
               placeholder={newFileType === 'folder' ? 'e.g. docs/new_folder' : 'e.g. docs/new.txt'}
               className="w-full bg-white dark:bg-zinc-900 border border-indigo-300 dark:border-indigo-500/50 rounded px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-indigo-500 text-zinc-900 dark:text-zinc-100"
-              onBlur={() => setShowNewFileInput(false)}
+              onBlur={() => {
+                if(!newFilePath) setShowNewFileInput(false);
+              }}
             />
           </form>
         )}
         
         {error && (
-          <div className="text-xs text-red-500 p-2">{error}</div>
+          <div className="text-xs text-red-500 p-2 break-words">{error}</div>
         )}
 
         <div className="space-y-0.5">
