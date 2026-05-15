@@ -7,7 +7,7 @@ import { Editor } from './components/Editor';
 import { SearchPanel } from './components/SearchPanel';
 import { fetchFileFromGithub, saveFileToGithub } from './lib/github';
 import { encryptLine, decryptLine } from './lib/crypto';
-import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search } from 'lucide-react';
+import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye } from 'lucide-react';
 import { i18n } from './lib/i18n';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -31,7 +31,7 @@ export default function App() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const [viewMode, setViewMode] = useState<'editor' | 'split'>('editor');
+  const [viewMode, setViewMode] = useState<'editor' | 'split' | 'preview'>('editor');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
   useEffect(() => {
@@ -406,7 +406,14 @@ export default function App() {
             className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'split' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
           >
             <Columns className="w-4 h-4" />
-            {t.preview} {/* Keeping translation key 'preview' but using the word for split */}
+            {t.split || 'Split'}
+          </button>
+          <button 
+            onClick={() => setViewMode('preview')}
+            className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'preview' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+          >
+            <Eye className="w-4 h-4" />
+            {t.preview}
           </button>
         </div>
         <div className="relative">
@@ -441,73 +448,68 @@ export default function App() {
 
         {/* Main Editor */}
         <main className="flex-1 flex bg-white dark:bg-[#0A0C0E] overflow-hidden relative">
-          {viewMode === 'editor' ? (
-              <Editor
-              value={text}
-              onChange={handleTextChange}
-              className="flex-1 w-full h-full text-base [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-6"
-              editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
-              vimMode={config.vimMode}
-              vimKeyBindings={config.vimKeyBindings}
-              themeType={config.theme}
-            />
-          ) : (
-            <div className="flex flex-1 w-full h-full overflow-hidden">
+          {(viewMode === 'editor' || viewMode === 'split') && (
+            <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
               <Editor
                 value={text}
                 onChange={handleTextChange}
-                className="flex-1 w-1/2 h-full text-base border-r border-zinc-200 dark:border-zinc-800 [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-6"
+                className="w-full h-full text-base [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-6"
                 editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
                 vimMode={config.vimMode}
                 vimKeyBindings={config.vimKeyBindings}
                 themeType={config.theme}
               />
-              <div className="flex-1 w-1/2 p-6 overflow-y-auto">
-                {config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
-                  <div className="prose prose-zinc dark:prose-invert max-w-none 
-                      prose-headings:font-semibold prose-a:text-indigo-500 
-                      prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
-                      prose-code:before:content-none prose-code:after:content-none
-                      prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none">
-                    <Markdown 
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        code({node, inline, className, children, ...props}: any) {
-                          const match = /language-(\w+)/.exec(className || '')
-                          const lang = match ? match[1] : ''
-                          if (!inline && lang === 'mermaid') {
-                            return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
-                          }
-                          if (!inline && (lang === 'plantuml' || lang === 'puml')) {
-                            return <PlantUMLBlock code={String(children).replace(/\n$/, '')} />
-                          }
-                          return !inline && match ? (
-                            <SyntaxHighlighter
-                              style={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? vscDarkPlus as any : vs as any}
-                              language={lang}
-                              PreTag="div"
-                              className="rounded-md border border-zinc-200 dark:border-zinc-800 !my-0 !bg-zinc-50 dark:!bg-[#111318]"
-                              {...props}
-                            >
-                              {String(children).replace(/\n$/, '')}
-                            </SyntaxHighlighter>
-                          ) : (
-                            <code className={className} {...props}>
-                              {children}
-                            </code>
-                          )
+            </div>
+          )}
+
+          {(viewMode === 'split' || viewMode === 'preview') && (
+            <div className={`p-6 overflow-y-auto ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1 lg:px-20'}`}>
+              {config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
+                <div className={`prose prose-zinc dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
+                    prose-headings:font-semibold prose-a:text-indigo-500 
+                    prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
+                    prose-code:before:content-none prose-code:after:content-none
+                    prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none`}>
+                  <Markdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      code({node, inline, className, children, ...props}: any) {
+                        const match = /language-(\w+)/.exec(className || '')
+                        const lang = match ? match[1] : ''
+                        if (!inline && lang === 'mermaid') {
+                          return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
                         }
-                      }}
-                    >
-                      {text || '*No content to preview*'}
-                    </Markdown>
-                  </div>
-                ) : (
-                  <pre className="font-mono text-sm whitespace-pre-wrap text-zinc-800 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-900 p-4 rounded-md border border-zinc-200 dark:border-zinc-800">
+                        if (!inline && (lang === 'plantuml' || lang === 'puml')) {
+                          return <PlantUMLBlock code={String(children).replace(/\n$/, '')} />
+                        }
+                        return !inline && match ? (
+                          <SyntaxHighlighter
+                            style={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? vscDarkPlus as any : vs as any}
+                            language={lang}
+                            PreTag="div"
+                            className="rounded-md border border-zinc-200 dark:border-zinc-800 !my-0 !bg-zinc-50 dark:!bg-[#111318]"
+                            {...props}
+                          >
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        ) : (
+                          <code className={className} {...props}>
+                            {children}
+                          </code>
+                        )
+                      }
+                    }}
+                  >
+                    {text || '*No content to preview*'}
+                  </Markdown>
+                </div>
+              ) : (
+                <div className={viewMode === 'preview' ? 'max-w-[1000px] mx-auto h-full' : 'h-full'}>
+                  <pre className="font-mono text-sm whitespace-pre-wrap break-words text-zinc-800 dark:text-zinc-200">
                     {text || 'No content'}
                   </pre>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           )}
         </main>

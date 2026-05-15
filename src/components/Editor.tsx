@@ -1,7 +1,8 @@
 import React, { useMemo, useEffect } from 'react';
 import CodeMirror, { ReactCodeMirrorProps } from '@uiw/react-codemirror';
 import { vim, Vim } from '@replit/codemirror-vim';
-import { autocompletion, CompletionContext } from '@codemirror/autocomplete';
+import { autocompletion, CompletionContext, startCompletion } from '@codemirror/autocomplete';
+import { EditorView } from '@codemirror/view';
 import { oneDark } from '@codemirror/theme-one-dark';
 import { githubLight } from '@uiw/codemirror-theme-github';
 import * as emojiModule from 'node-emoji';
@@ -16,23 +17,49 @@ export interface EditorProps extends ReactCodeMirrorProps {
 
 function emojiCompletion(context: CompletionContext) {
   const word = context.matchBefore(/:[a-zA-Z0-9_]*/);
+  console.log("emojiCompletion invoked! word:", word, "explicit:", context.explicit);
   if (!word) return null;
-  if (word.from === word.to && !context.explicit) return null;
+  // trigger on typing `:` by removing the explicit check if text starts with `:`
+  if (word.from === word.to && !context.explicit) {
+    // If the character immediately before cursor is ':', trigger!
+    const before = context.matchBefore(/:/);
+    if (!before) return null;
+  }
 
   const query = word.text.slice(1);
   const results = emoji.search(query).slice(0, 10);
+  console.log("emoji search results:", results);
   
   return {
     from: word.from,
     options: results.map(r => ({
+      // In CM6, label is shown, apply is applied
       label: r.emoji + ' ' + r.name,
       apply: r.emoji,
       type: 'text'
-    }))
+    })),
+    // Always requery when the user types to ensure we fetch fresh emoji matches
+    validFor: (text, from, to, state) => false,
   };
 }
 
 const emojiExtension = autocompletion({ override: [emojiCompletion] });
+
+const triggerOnColonExtension = EditorView.updateListener.of((update) => {
+  if (update.docChanged) {
+    const head = update.state.selection.main.head;
+    if (head > 0) {
+      const charBefore = update.state.sliceDoc(head - 1, head);
+      if (charBefore === ':') {
+        const charTwoBefore = head > 1 ? update.state.sliceDoc(head - 2, head - 1) : ' ';
+        // Only trigger if preceded by whitespace or at start of line
+        if (/\s/.test(charTwoBefore)) {
+          startCompletion(update.view);
+        }
+      }
+    }
+  }
+});
 
 export const Editor: React.FC<EditorProps> = ({ vimMode, vimKeyBindings, themeType, ...props }) => {
   useEffect(() => {
@@ -69,7 +96,7 @@ export const Editor: React.FC<EditorProps> = ({ vimMode, vimKeyBindings, themeTy
   }, [vimMode, vimKeyBindings]);
 
   const extensions = useMemo(() => {
-    const exts = [markdown(), emojiExtension];
+    const exts = [markdown(), emojiExtension, triggerOnColonExtension];
     if (vimMode) {
       exts.push(vim());
     }
