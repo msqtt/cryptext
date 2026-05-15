@@ -327,7 +327,7 @@ export default function App() {
             <span className="font-bold text-white">C</span>
           </div>
           <div className="truncate">
-            <h1 className="text-base sm:text-lg font-semibold tracking-tight text-zinc-900 dark:text-[#E0E0E0] leading-tight truncate">
+            <h1 className="text-base sm:text-xl font-semibold tracking-tight text-zinc-900 dark:text-[#E0E0E0] leading-tight truncate">
               {t.title} <span className="text-zinc-500 dark:text-[#6B7280] font-normal text-xs sm:text-sm ml-1 sm:ml-2">v1.3.0</span>
             </h1>
           </div>
@@ -406,7 +406,7 @@ export default function App() {
 
       {/* Toolbar */}
       <div className="h-12 border-b border-zinc-200 dark:border-[#2D3139] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-[#16191E] shrink-0">
-        <div className="flex space-x-4 sm:space-x-6 text-xs sm:text-sm h-full">
+        <div className="flex space-x-4 sm:space-x-6 text-sm sm:text-base h-full">
           <button 
             onClick={() => setViewMode('editor')}
             className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'editor' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
@@ -486,7 +486,7 @@ export default function App() {
               <Editor
                 value={text}
                 onChange={handleTextChange}
-                className="w-full h-full text-base [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
+                className="w-full h-full text-lg [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
                 editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
                 vimMode={config.vimMode}
                 vimKeyBindings={config.vimKeyBindings}
@@ -498,7 +498,7 @@ export default function App() {
           {((viewMode === 'split' || viewMode === 'preview') && (!isMobile || viewMode === 'preview')) && (
             <div className={`p-4 sm:p-6 overflow-y-auto ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1 lg:px-20'}`}>
               {config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
-                <div className={`prose prose-zinc dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
+                <div className={`prose prose-zinc prose-lg dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
                     prose-headings:font-semibold prose-a:text-indigo-500 
                     prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
                     prose-code:before:content-none prose-code:after:content-none
@@ -538,7 +538,7 @@ export default function App() {
                 </div>
               ) : (
                 <div className={viewMode === 'preview' ? 'max-w-[1000px] mx-auto h-full' : 'h-full'}>
-                  <pre className="font-mono text-sm whitespace-pre-wrap break-words text-zinc-800 dark:text-zinc-200">
+                  <pre className="font-mono text-base whitespace-pre-wrap break-words text-zinc-800 dark:text-zinc-200">
                     {text || 'No content'}
                   </pre>
                 </div>
@@ -549,7 +549,7 @@ export default function App() {
       </div>
 
       {/* Footer Bar */}
-      <footer className="h-8 bg-zinc-50 dark:bg-[#16191E] border-t border-zinc-200 dark:border-[#2D3139] px-4 flex items-center justify-between text-[9px] sm:text-[10px] text-zinc-500 dark:text-gray-500 font-mono shrink-0">
+      <footer className="h-8 bg-zinc-50 dark:bg-[#16191E] border-t border-zinc-200 dark:border-[#2D3139] px-4 flex items-center justify-between text-[10px] sm:text-xs text-zinc-500 dark:text-gray-500 font-mono shrink-0">
         <div className="flex items-center space-x-2 sm:space-x-4">
           <div className="flex items-center gap-1 sm:gap-1.5 uppercase shrink-0">
             <span className={`w-1.5 h-1.5 rounded-full ${fileSha ? 'bg-indigo-500' : 'bg-zinc-400 dark:bg-gray-500'}`}></span>

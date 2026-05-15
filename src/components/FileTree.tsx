@@ -218,13 +218,13 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       if (node.type === 'tree') {
         return (
           <div key={node.path}>
-            <div className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-sm group`} style={{ paddingLeft: `${depth * 12 + 8}px` }}>
+            <div className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-base group`} style={{ paddingLeft: `${depth * 14 + 8}px` }}>
               <button
                 onClick={() => toggleFolder(node.path)}
-                className="flex items-center gap-1.5 flex-1 truncate text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
+                className="flex items-center gap-2 flex-1 truncate text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
               >
-                {isExpanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                <FolderOpen className="w-3.5 h-3.5 text-indigo-400" />
+                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                <FolderOpen className="w-4 h-4 text-indigo-400" />
                 
                 {isRenamingThis ? (
                   <input 
@@ -237,7 +237,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
                       if (e.key === 'Escape') setRenamingPath(null);
                     }}
                     disabled={isRenaming}
-                    className="flex-1 bg-white dark:bg-zinc-900 border border-indigo-500 rounded px-1 -ml-1 text-xs"
+                    className="flex-1 bg-white dark:bg-zinc-900 border border-indigo-500 rounded px-1 -ml-1 text-sm font-normal"
                     autoFocus
                   />
                 ) : (
@@ -268,15 +268,15 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       return (
         <div 
           key={node.path}
-          className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-sm group ${isActive ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'}`}
-          style={{ paddingLeft: `${depth * 12 + 24}px` }}
+          className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-base group ${isActive ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'}`}
+          style={{ paddingLeft: `${depth * 14 + 28}px` }}
         >
           <button
             onClick={() => onSelectFile(node.path)}
             className={`flex items-center gap-2 flex-1 truncate text-left hover:text-zinc-900 dark:hover:text-zinc-200`}
             title={node.path}
           >
-            <FileText className="w-3 h-3 shrink-0 opacity-70" />
+            <FileText className="w-4 h-4 shrink-0 opacity-70" />
             {isRenamingThis ? (
                <input 
                  type="text" 
@@ -316,9 +316,9 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
   const nested = buildNestedTree(tree);
 
   return (
-    <div className="w-64 border-r border-zinc-200 dark:border-[#2D3139] bg-zinc-50 dark:bg-[#16191E] flex flex-col h-full shrink-0">
+    <div className="w-72 border-r border-zinc-200 dark:border-[#2D3139] bg-zinc-50 dark:bg-[#16191E] flex flex-col h-full shrink-0">
       <div className="h-12 border-b border-zinc-200 dark:border-[#2D3139] flex items-center justify-between px-3 shrink-0">
-        <span className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-gray-500">Explorer</span>
+        <span className="text-sm font-semibold uppercase tracking-wider text-zinc-500 dark:text-gray-500">Explorer</span>
         <div className="flex flex-wrap items-center gap-1 justify-end max-w-full overflow-hidden">
           <button 
             onClick={() => {

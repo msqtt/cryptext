@@ -52,38 +52,38 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
           </h3>
 
           <div className="flex items-center justify-between">
-            <label className="text-sm text-zinc-600 dark:text-gray-400">Vim Mode</label>
+            <label className="text-base text-zinc-600 dark:text-gray-400">Vim Mode</label>
             <input
               type="checkbox"
               name="vimMode"
               checked={!!config.vimMode}
               onChange={(e) => updateConfig({ vimMode: e.target.checked })}
-              className="w-4 h-4 text-indigo-600 bg-white border-zinc-300 rounded focus:ring-indigo-500"
+              className="w-5 h-5 text-indigo-600 bg-white border-zinc-300 rounded focus:ring-indigo-500"
             />
           </div>
 
           {config.vimMode && (
             <div className="space-y-2">
-              <label className="text-xs text-zinc-600 dark:text-gray-400 block ml-1">Vim Custom Mappings</label>
+              <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">Vim Custom Mappings</label>
               <textarea
                 name="vimKeyBindings"
                 value={config.vimKeyBindings || ''}
                 onChange={(e) => updateConfig({ vimKeyBindings: e.target.value })}
                 placeholder="imap jk <Esc>"
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-sm font-mono text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-base font-mono text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 rows={3}
               />
             </div>
           )}
 
           <div className="space-y-2">
-            <label className="text-xs text-zinc-600 dark:text-gray-400 block ml-1">{t.theme}</label>
+            <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.theme}</label>
             <div className="relative">
               <select
                 name="theme"
                 value={config.theme}
                 onChange={handleChange}
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-sm text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none"
+                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none"
               >
                 <option value="system">{t.autoDetect}</option>
                 <option value="light">{t.light}</option>
@@ -94,13 +94,13 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs text-zinc-600 dark:text-gray-400 block ml-1">{t.language}</label>
+            <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.language}</label>
             <div className="relative">
               <select
                 name="language"
                 value={config.language}
                 onChange={handleChange}
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-sm text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none"
+                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none"
               >
                 <option value="en">English</option>
                 <option value="zh">中文</option>
@@ -117,7 +117,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
           </h3>
           
           <div className="space-y-2">
-            <label className="text-xs text-zinc-600 dark:text-gray-400 block ml-1">{t.pat}</label>
+            <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.pat}</label>
             <div className="relative">
               <input
                 type="password"
@@ -125,15 +125,15 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                 value={config.githubToken}
                 onChange={handleChange}
                 placeholder="ghp_..."
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-sm text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
               />
-              <Key className="w-4 h-4 absolute left-3 top-2.5 text-zinc-400 dark:text-gray-500" />
+              <Key className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
             </div>
-            <p className="text-[10px] text-zinc-500 dark:text-gray-500 ml-1">{t.patHelp}</p>
+            <p className="text-xs text-zinc-500 dark:text-gray-500 ml-1">{t.patHelp}</p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs text-zinc-600 dark:text-gray-400 block ml-1">{t.repoUrl}</label>
+            <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.repoUrl}</label>
             <div className="relative">
               <input
                 type="text"
@@ -141,14 +141,14 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                 value={config.repoUrl}
                 onChange={handleChange}
                 placeholder="https://github.com/user/repo"
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-sm text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
               />
-              <Github className="w-4 h-4 absolute left-3 top-2.5 text-zinc-400 dark:text-gray-500" />
+              <Github className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
             </div>
           </div>
           
           <div className="space-y-2">
-            <label className="text-xs text-zinc-600 dark:text-gray-400 block ml-1">{t.branch}</label>
+            <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.branch}</label>
              <div className="relative">
               <input
                 type="text"
@@ -156,9 +156,9 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                 value={config.branch}
                 onChange={handleChange}
                 placeholder="main"
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-sm text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
               />
-              <GitBranch className="w-4 h-4 absolute left-3 top-2.5 text-zinc-400 dark:text-gray-500" />
+              <GitBranch className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
             </div>
           </div>
         </div>
@@ -169,16 +169,16 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
             {t.encryption}
           </h3>
           <div className="space-y-2">
-            <label className="text-xs text-zinc-600 dark:text-gray-400 block ml-1">{t.encryptionKey}</label>
+            <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.encryptionKey}</label>
              <input
               type="password"
               name="encryptionKey"
               value={config.encryptionKey}
               onChange={handleChange}
               placeholder="Your secret key"
-              className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-sm text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+              className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
             />
-            <p className="text-[10px] text-zinc-500 dark:text-gray-500 ml-1">{t.encryptionHelp}</p>
+            <p className="text-xs text-zinc-500 dark:text-gray-500 ml-1">{t.encryptionHelp}</p>
           </div>
         </div>
       </div>

@@ -91,10 +91,10 @@ export function HistoryPanel({ config, isOpen, onClose, onSelectVersion, current
           >
             <GitCommit className="w-4 h-4 mt-0.5 text-zinc-400 dark:text-gray-500 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate mb-1">
+              <p className="text-base font-medium truncate mb-1">
                 {commit.commit.message || 'Update'}
               </p>
-              <div className="flex items-center text-xs text-zinc-500 dark:text-gray-500">
+              <div className="flex items-center text-sm text-zinc-500 dark:text-gray-500">
                 <span className="truncate">{commit.commit.author?.name}</span>
                 <span className="mx-1.5">•</span>
                 <span>{format(new Date(commit.commit.author?.date), 'MMM d, HH:mm')}</span>

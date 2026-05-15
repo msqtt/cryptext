@@ -142,7 +142,7 @@ export function SearchPanel({ config, onClose, onSelectFile }: SearchPanelProps)
   }, [query]);
 
   return (
-    <div className="absolute left-0 sm:left-64 top-14 w-full sm:w-96 max-h-[80vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-none sm:rounded-lg shadow-2xl z-50 overflow-hidden">
+    <div className="absolute left-0 sm:left-72 top-14 w-full sm:w-96 max-h-[80vh] flex flex-col bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-none sm:rounded-lg shadow-2xl z-50 overflow-hidden">
       <div className="flex items-center gap-2 p-3 border-b border-zinc-200 dark:border-zinc-800">
         <Search className="w-4 h-4 text-zinc-400" />
         <input
@@ -180,11 +180,11 @@ export function SearchPanel({ config, onClose, onSelectFile }: SearchPanelProps)
               onClose();
             }}
           >
-            <div className="flex items-center gap-1.5 text-xs font-medium text-indigo-600 dark:text-indigo-400 mb-1">
-              <FileText className="w-3 h-3" />
+            <div className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">
+              <FileText className="w-4 h-4" />
               {r.filePath} <span className="text-zinc-400 ml-1">:{r.line}</span>
             </div>
-            <div className="text-sm text-zinc-700 dark:text-zinc-300 font-mono truncate">
+            <div className="text-base text-zinc-700 dark:text-zinc-300 font-mono truncate">
               {r.content}
             </div>
           </div>
