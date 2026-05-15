@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Loader2, X, FileText } from 'lucide-react';
 import { AppConfig } from '../hooks/useConfig';
-import { getRepoTree, fetchFileVersion } from '../lib/github';
+import { getRepoTree, getBlobContent } from '../lib/github';
 import { decryptLine } from '../lib/crypto';
 import { i18n } from '../lib/i18n';
 
@@ -25,50 +25,101 @@ export function SearchPanel({ config, onClose, onSelectFile }: SearchPanelProps)
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [error, setError] = useState('');
 
+  const isGithubConfigured = Boolean(config.githubToken && config.repoUrl && config.branch);
+
   const executeSearch = async () => {
-    if (!query.trim() || !config.githubToken || !config.repoUrl || !config.encryptionKey) return;
+    if (!query.trim()) return;
     
     setLoading(true);
     setResults([]);
     setError('');
     
     try {
-      // Get all files
-      const tree = await getRepoTree(config);
-      // Filter for files ending in .txt
-      const files = tree.filter(f => f.type === 'blob' && f.path && f.path.endsWith('.txt'));
-      
-      setProgress({ current: 0, total: files.length });
-      
       const found: SearchResult[] = [];
       const lowerQuery = query.toLowerCase();
-      
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        try {
-          const fetched = await fetchFileVersion(config, file.sha);
-          if (fetched && fetched.content) {
-            const lines = fetched.content.split('\n');
+
+      if (isGithubConfigured) {
+        // Get all files from github
+        const tree = await getRepoTree(config);
+        // Filter out .keep dummy files
+        const files = tree.filter(f => f.type === 'blob' && f.path && !f.path.endsWith('.keep'));
+        
+        setProgress({ current: 0, total: files.length });
+        
+        for (let i = 0; i < files.length; i++) {
+          const file = files[i];
+          try {
+            const fetched = await getBlobContent(config, file.sha);
+            if (fetched) {
+              const lines = fetched.split('\n');
+              lines.forEach((line, lineIndex) => {
+                if (!line.trim()) return;
+                try {
+                  const dec = config.encryptionKey ? decryptLine(line, config.encryptionKey) : line;
+                  if (dec.toLowerCase().includes(lowerQuery)) {
+                    found.push({
+                      filePath: file.path,
+                      line: lineIndex + 1,
+                      content: dec
+                    });
+                  }
+                } catch (e) {
+                  // Ignore decryption errors, fallback to checking raw line
+                  if (line.toLowerCase().includes(lowerQuery)) {
+                    found.push({
+                      filePath: file.path,
+                      line: lineIndex + 1,
+                      content: line
+                    });
+                  }
+                }
+              });
+            }
+          } catch (e) {
+            console.error('Failed to search file', file.path, e);
+          }
+          setProgress({ current: i + 1, total: files.length });
+        }
+      } else {
+        // Local files search
+        const localFilesStr = localStorage.getItem('cryptext_local_files') || '[]';
+        const localFiles: string[] = JSON.parse(localFilesStr);
+        if (config.filePath && !localFiles.includes(config.filePath)) {
+          localFiles.push(config.filePath);
+        }
+        
+        const files = localFiles.filter(path => !path.endsWith('.keep'));
+        setProgress({ current: 0, total: files.length });
+        
+        for (let i = 0; i < files.length; i++) {
+          const filePath = files[i];
+          const content = localStorage.getItem('file:' + filePath) || '';
+          if (content) {
+            const lines = content.split('\n');
             lines.forEach((line, lineIndex) => {
               if (!line.trim()) return;
               try {
-                const dec = decryptLine(line, config.encryptionKey);
+                const dec = config.encryptionKey ? decryptLine(line, config.encryptionKey) : line;
                 if (dec.toLowerCase().includes(lowerQuery)) {
                   found.push({
-                    filePath: file.path, // path from getRepoTree is already decrypted!
+                    filePath,
                     line: lineIndex + 1,
                     content: dec
                   });
                 }
               } catch (e) {
-                // Ignore decryption errors
+                if (line.toLowerCase().includes(lowerQuery)) {
+                  found.push({
+                    filePath,
+                    line: lineIndex + 1,
+                    content: line
+                  });
+                }
               }
             });
           }
-        } catch (e) {
-          console.error('Failed to search file', file.path, e);
+          setProgress({ current: i + 1, total: files.length });
         }
-        setProgress({ current: i + 1, total: files.length });
       }
       
       setResults(found);

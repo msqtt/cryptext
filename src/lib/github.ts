@@ -353,3 +353,28 @@ export async function fetchFileVersion(config: GithubConfig, ref: string): Promi
     throw error;
   }
 }
+
+export async function getBlobContent(config: GithubConfig, fileSha: string): Promise<string | null> {
+  const { githubToken, repoUrl } = config;
+  const { owner: repoOwner, repo: repoName } = parseRepoInfo(repoUrl);
+  if (!githubToken || !repoOwner || !repoName || !fileSha) return null;
+
+  const octokit = new Octokit({ auth: githubToken });
+  try {
+    const res = await octokit.rest.git.getBlob({
+      owner: repoOwner,
+      repo: repoName,
+      file_sha: fileSha
+    });
+    const b64 = res.data.content;
+    const binary = atob(b64);
+    try {
+      return decodeURIComponent(escape(binary));
+    } catch {
+      return binary;
+    }
+  } catch (e: any) {
+    if (e.status === 404) return null;
+    throw e;
+  }
+}
