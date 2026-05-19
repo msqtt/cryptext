@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AppConfig } from '../hooks/useConfig';
-import { Save, Settings2, Github, Key, FileText, GitBranch, User, Monitor, Globe } from 'lucide-react';
+import { Save, Settings2, Github, Key, FileText, GitBranch, User, Monitor, Globe, Loader2 } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { i18n } from '../lib/i18n';
+import { Octokit } from 'octokit';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -18,6 +19,30 @@ interface ConfigPanelProps {
 
 export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPanelProps) {
   const t = i18n[config.language || 'en'];
+  const [repos, setRepos] = useState<any[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+
+  useEffect(() => {
+    if (config.githubToken) {
+      fetchRepos();
+    }
+  }, [config.githubToken]);
+
+  const fetchRepos = async () => {
+    setLoadingRepos(true);
+    try {
+      const octokit = new Octokit({ auth: config.githubToken });
+      const res = await octokit.rest.repos.listForAuthenticatedUser({
+        sort: 'updated',
+        per_page: 50
+      });
+      setRepos(res.data);
+    } catch (e) {
+      console.error('Failed to fetch repos', e);
+    } finally {
+      setLoadingRepos(false);
+    }
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     updateConfig({ [e.target.name]: e.target.value });
@@ -129,22 +154,53 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
               />
               <Key className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
             </div>
-            <p className="text-xs text-zinc-500 dark:text-gray-500 ml-1">{t.patHelp}</p>
           </div>
 
           <div className="space-y-2">
             <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.repoUrl}</label>
             <div className="relative">
-              <input
-                type="text"
-                name="repoUrl"
-                value={config.repoUrl}
-                onChange={handleChange}
-                placeholder="https://github.com/user/repo"
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-              />
-              <Github className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
+              {config.githubToken ? (
+                <div className="relative">
+                   <select
+                     name="repoUrl"
+                     value={config.repoUrl}
+                     onChange={handleChange}
+                     disabled={loadingRepos}
+                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none disabled:opacity-50"
+                   >
+                     <option value="" disabled>Select a repository...</option>
+                     {repos.map(repo => (
+                       <option key={repo.id} value={repo.html_url}>{repo.full_name}</option>
+                     ))}
+                   </select>
+                   <Github className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
+                   {loadingRepos && <Loader2 className="w-4 h-4 absolute right-3 top-3 animate-spin text-zinc-400" />}
+                </div>
+              ) : (
+                <input
+                  type="text"
+                  name="repoUrl"
+                  value={config.repoUrl}
+                  onChange={handleChange}
+                  placeholder="https://github.com/user/repo"
+                  className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                />
+              )}
+              {(!config.githubToken) && <Github className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />}
             </div>
+            {config.githubToken && repos.length === 0 && !loadingRepos && (
+              <p className="text-xs text-amber-600 dark:text-amber-400 ml-1">No repositories found. Or you can enter URL manually below.</p>
+            )}
+            {config.githubToken && (
+               <input
+                 type="text"
+                 name="repoUrl"
+                 value={config.repoUrl}
+                 onChange={handleChange}
+                 placeholder="Or enter manually: https://github.com/user/repo"
+                 className="w-full mt-2 bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-sm text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+               />
+            )}
           </div>
           
           <div className="space-y-2">
