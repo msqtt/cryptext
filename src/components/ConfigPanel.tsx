@@ -5,6 +5,7 @@ import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { i18n } from '../lib/i18n';
 import { Octokit } from 'octokit';
+import { parseRepoInfo } from '../lib/github';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -21,12 +22,40 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
   const t = i18n[config.language || 'en'];
   const [repos, setRepos] = useState<any[]>([]);
   const [loadingRepos, setLoadingRepos] = useState(false);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
 
   useEffect(() => {
     if (config.githubToken) {
       fetchRepos();
     }
   }, [config.githubToken]);
+
+  useEffect(() => {
+    if (config.githubToken && config.repoUrl) {
+      fetchBranches();
+    }
+  }, [config.githubToken, config.repoUrl]);
+
+  const fetchBranches = async () => {
+    setLoadingBranches(true);
+    setBranches([]);
+    try {
+      const { owner, repo } = parseRepoInfo(config.repoUrl);
+      if (!owner || !repo) return;
+      const octokit = new Octokit({ auth: config.githubToken });
+      const res = await octokit.rest.repos.listBranches({
+        owner,
+        repo,
+        per_page: 100
+      });
+      setBranches(res.data);
+    } catch (e) {
+      console.error('Failed to fetch branches', e);
+    } finally {
+      setLoadingBranches(false);
+    }
+  };
 
   const fetchRepos = async () => {
     setLoadingRepos(true);
@@ -189,32 +218,46 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
               {(!config.githubToken) && <Github className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />}
             </div>
             {config.githubToken && repos.length === 0 && !loadingRepos && (
-              <p className="text-xs text-amber-600 dark:text-amber-400 ml-1">No repositories found. Or you can enter URL manually below.</p>
-            )}
-            {config.githubToken && (
-               <input
-                 type="text"
-                 name="repoUrl"
-                 value={config.repoUrl}
-                 onChange={handleChange}
-                 placeholder="Or enter manually: https://github.com/user/repo"
-                 className="w-full mt-2 bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-sm text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-               />
+              <p className="text-xs text-amber-600 dark:text-amber-400 ml-1">No repositories found.</p>
             )}
           </div>
           
           <div className="space-y-2">
             <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.branch}</label>
              <div className="relative">
-              <input
-                type="text"
-                name="branch"
-                value={config.branch}
-                onChange={handleChange}
-                placeholder="main"
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
-              />
-              <GitBranch className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
+              {config.githubToken && config.repoUrl ? (
+                 <div className="relative">
+                   <select
+                     name="branch"
+                     value={config.branch}
+                     onChange={handleChange}
+                     disabled={loadingBranches}
+                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none disabled:opacity-50"
+                   >
+                     {config.branch && !branches.some(b => b.name === config.branch) && (
+                       <option value={config.branch}>{config.branch}</option> 
+                     )}
+                     {!config.branch && <option value="" disabled>Select branch...</option>}
+                     {branches.map(branch => (
+                       <option key={branch.name} value={branch.name}>{branch.name}</option>
+                     ))}
+                   </select>
+                   <GitBranch className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
+                   {loadingBranches && <Loader2 className="w-4 h-4 absolute right-3 top-3 animate-spin text-zinc-400" />}
+                 </div>
+              ) : (
+                <>
+                  <input
+                    type="text"
+                    name="branch"
+                    value={config.branch}
+                    onChange={handleChange}
+                    placeholder="main"
+                    className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                  />
+                  <GitBranch className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
+                </>
+              )}
             </div>
           </div>
         </div>
