@@ -17,20 +17,26 @@ export function HistoryPanel({ config, isOpen, onClose, onSelectVersion, current
   const [commits, setCommits] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [scope, setScope] = useState<'file' | 'repo'>('file');
   
-  const t = i18n[config.language || 'en'];
+  const t = i18n[config.language || 'en'] as any;
 
   useEffect(() => {
     if (isOpen) {
-      loadHistory();
+      if (!config.filePath && scope === 'file') {
+        setScope('repo');
+      } else {
+        loadHistory();
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, scope, config.filePath]); // Added config.filePath and scope to dependencies
 
   const loadHistory = async () => {
     setLoading(true);
     setError('');
     try {
-      const history = await getFileHistory(config);
+      const isRepoLevel = scope === 'repo' || !config.filePath;
+      const history = await getFileHistory(config, isRepoLevel);
       setCommits(history);
     } catch (e: any) {
       setError(e.message || 'Failed to load history');
@@ -40,12 +46,18 @@ export function HistoryPanel({ config, isOpen, onClose, onSelectVersion, current
   };
 
   const handleSelect = async (commitSha: string) => {
+    if (!config.filePath) {
+      setError('No file is currently selected.');
+      return;
+    }
     setLoading(true);
     try {
       const file = await fetchFileVersion(config, commitSha);
       if (file) {
         onSelectVersion(file.content, file.sha);
         onClose();
+      } else {
+        setError(`This file didn't exist in that commit.`);
       }
     } catch (e: any) {
       setError(e.message || 'Failed to load version');
@@ -58,7 +70,7 @@ export function HistoryPanel({ config, isOpen, onClose, onSelectVersion, current
 
   return (
     <div className="absolute inset-y-0 right-0 w-full sm:w-80 bg-zinc-50 dark:bg-[#0F1115] border-l border-zinc-200 dark:border-[#2D3139] shadow-2xl z-50 flex flex-col transform transition-transform duration-300 text-zinc-900 dark:text-[#E0E0E0]">
-      <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-[#2D3139] bg-white dark:bg-[#16191E]">
+      <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-[#2D3139] bg-white dark:bg-[#16191E] shrink-0">
         <h2 className="font-semibold flex items-center gap-2">
           <History className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
           {t.historyTitle}
@@ -68,6 +80,22 @@ export function HistoryPanel({ config, isOpen, onClose, onSelectVersion, current
           className="text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-gray-200 transition-colors p-1"
         >
           <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      <div className="flex border-b border-zinc-200 dark:border-[#2D3139] bg-white dark:bg-[#16191E] text-sm shrink-0">
+        <button 
+          onClick={() => setScope('file')}
+          disabled={!config.filePath}
+          className={`flex-1 py-3 text-center border-b-2 transition-colors ${!config.filePath ? 'opacity-50 cursor-not-allowed' : ''} ${scope === 'file' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-400 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+        >
+          {t.fileHistory || 'File History'}
+        </button>
+        <button 
+          onClick={() => setScope('repo')}
+          className={`flex-1 py-3 text-center border-b-2 transition-colors ${scope === 'repo' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-400 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+        >
+          {t.repoHistory || 'Repo History'}
         </button>
       </div>
 

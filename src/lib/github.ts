@@ -298,22 +298,24 @@ export async function getRepoTree(config: GithubConfig): Promise<any[]> {
   }
 }
 
-export async function getFileHistory(config: GithubConfig): Promise<any[]> {
+export async function getFileHistory(config: GithubConfig, repoLevelHistory = false): Promise<any[]> {
   const { githubToken, repoUrl, filePath, branch, encryptionKey } = config;
   const { owner: repoOwner, repo: repoName } = parseRepoInfo(repoUrl);
-  if (!githubToken || !repoOwner || !repoName || !filePath) return [];
-
-  const actualPath = encryptionKey ? encryptFileName(filePath, encryptionKey) : filePath;
+  if (!githubToken || !repoOwner || !repoName) return [];
 
   const octokit = new Octokit({ auth: githubToken });
+  const params: any = {
+    owner: repoOwner,
+    repo: repoName,
+    sha: branch || 'main',
+  };
+
+  if (filePath && !repoLevelHistory) {
+    params.path = encryptionKey ? encryptFileName(filePath, encryptionKey) : filePath;
+  }
 
   try {
-    const res = await octokit.rest.repos.listCommits({
-      owner: repoOwner,
-      repo: repoName,
-      path: actualPath,
-      sha: branch || 'main',
-    });
+    const res = await octokit.rest.repos.listCommits(params);
     return res.data;
   } catch (e: any) {
     if (e.status === 404) return [];
@@ -321,9 +323,11 @@ export async function getFileHistory(config: GithubConfig): Promise<any[]> {
   }
 }
 
+
 export async function fetchFileVersion(config: GithubConfig, ref: string): Promise<{ content: string; sha: string } | null> {
   const { githubToken, repoUrl, filePath, encryptionKey } = config;
   const { owner: repoOwner, repo: repoName } = parseRepoInfo(repoUrl);
+  if (!filePath) return null;
   const octokit = new Octokit({ auth: githubToken });
 
   const actualPath = encryptionKey ? encryptFileName(filePath, encryptionKey) : filePath;

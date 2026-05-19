@@ -122,9 +122,12 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
   const handleDelete = async (path: string, isDirectory: boolean) => {
     if (!confirm(`Are you sure you want to delete ${isDirectory ? 'folder' : 'file'}: ${path}?`)) return;
     
-    removeLocalFile(path);
+    const isLocalOnly = getLocalFiles().includes(path) && !tree.some(n => n.path === path && !getLocalFiles().includes(path));
     
-    if (config.githubToken && config.repoUrl) {
+    removeLocalFile(path);
+    localStorage.removeItem('file:' + path);
+    
+    if (!isLocalOnly && config.githubToken && config.repoUrl) {
       setLoading(true);
       try {
         await deletePathFromGithub(config, path, isDirectory);
@@ -136,6 +139,9 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       }
       loadTree();
     } else {
+       if (activeFile === path || activeFile.startsWith(path + '/')) {
+          onSelectFile(''); // clear active file
+       }
        loadTree();
     }
   };
@@ -162,15 +168,23 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
 
     setIsRenaming(true);
     try {
-      if (config.githubToken && config.repoUrl) {
+      const isLocalOnly = getLocalFiles().includes(path) && !tree.some(n => n.path === path && !getLocalFiles().includes(path));
+      
+      if (!isLocalOnly && config.githubToken && config.repoUrl) {
         await renamePathInGithub(config, path, newPath, isDirectory);
       }
-      // update local storage logic if needed
+      
+      // update local storage
       removeLocalFile(path);
-      addLocalFile(newPath); // approximate, doesn't add children
+      const content = localStorage.getItem('file:' + path);
+      if (content !== null) {
+        localStorage.removeItem('file:' + path);
+        localStorage.setItem('file:' + newPath, content);
+      }
+      addLocalFile(newPath);
       
       if (activeFile === path || activeFile.startsWith(path + '/')) {
-         onSelectFile(''); // better edge cases just clearing the active open
+         onSelectFile(newPath); 
       }
       await loadTree();
     } catch(e: any) {
