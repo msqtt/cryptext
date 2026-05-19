@@ -318,7 +318,7 @@ export default function App() {
         <div className="flex items-center gap-2 sm:gap-4 overflow-hidden">
           <button 
             onClick={() => setIsExplorerOpen(!isExplorerOpen)}
-            className="p-1.5 -ml-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 rounded transition-colors"
+            className="hidden sm:block p-1.5 -ml-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-zinc-800 rounded transition-colors"
             title={isExplorerOpen ? "Close Explorer" : "Open Explorer"}
           >
             {isExplorerOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeft className="w-5 h-5" />}
@@ -328,7 +328,7 @@ export default function App() {
           </div>
           <div className="truncate">
             <h1 className="text-base sm:text-xl font-semibold tracking-tight text-zinc-900 dark:text-[#E0E0E0] leading-tight truncate">
-              {t.title} <span className="text-zinc-500 dark:text-[#6B7280] font-normal text-xs sm:text-sm ml-1 sm:ml-2">v1.3.0</span>
+              {t.title}
             </h1>
           </div>
         </div>
@@ -395,7 +395,7 @@ export default function App() {
             </button>
             <button
               onClick={() => setIsConfigOpen(true)}
-              className="p-2 text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-gray-200 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-md transition-colors"
+              className="p-2 text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-gray-200 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-md transition-colors hidden sm:block"
               title={t.settings}
             >
               <Settings className="w-4 h-4" />
@@ -404,53 +404,55 @@ export default function App() {
         </div>
       </header>
 
-      {/* Toolbar */}
-      <div className="h-12 border-b border-zinc-200 dark:border-[#2D3139] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-[#16191E] shrink-0">
-        <div className="flex space-x-4 sm:space-x-6 text-sm sm:text-base h-full">
-          <button 
-            onClick={() => setViewMode('editor')}
-            className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'editor' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
-          >
-            <Type className="w-4 h-4" />
-            <span className={isMobile ? 'hidden' : 'inline'}>{t.editor}</span>
-            {isMobile && <span>Edit</span>}
-          </button>
-          {(!isMobile) && (
+      {/* Toolbar (Hidden on Mobile) */}
+      {!isMobile && (
+        <div className="h-12 border-b border-zinc-200 dark:border-[#2D3139] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-[#16191E] shrink-0">
+          <div className="flex space-x-4 sm:space-x-6 text-sm sm:text-base h-full">
             <button 
-              onClick={() => setViewMode('split')}
-              className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'split' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+              onClick={() => setViewMode('editor')}
+              className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'editor' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
             >
-              <Columns className="w-4 h-4" />
-              {t.split || 'Split'}
+              <Type className="w-4 h-4" />
+              <span className={isMobile ? 'hidden' : 'inline'}>{t.editor}</span>
+              {isMobile && <span>Edit</span>}
             </button>
-          )}
-          <button 
-            onClick={() => setViewMode('preview')}
-            className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'preview' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
-          >
-            <Eye className="w-4 h-4" />
-            <span className={isMobile ? 'hidden' : 'inline'}>{t.preview}</span>
-            {isMobile && <span>View</span>}
-          </button>
+            {(!isMobile) && (
+              <button 
+                onClick={() => setViewMode('split')}
+                className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'split' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+              >
+                <Columns className="w-4 h-4" />
+                {t.split || 'Split'}
+              </button>
+            )}
+            <button 
+              onClick={() => setViewMode('preview')}
+              className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'preview' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+            >
+              <Eye className="w-4 h-4" />
+              <span className={isMobile ? 'hidden' : 'inline'}>{t.preview}</span>
+              {isMobile && <span>View</span>}
+            </button>
+          </div>
+          <div className="relative">
+            <button
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-500 dark:text-gray-400 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors"
+            >
+              <Smile className="w-4 h-4" />
+              Emoji
+            </button>
+            {showEmojiPicker && (
+              <div className="absolute right-0 top-full mt-2 z-50 shadow-xl border border-zinc-200 dark:border-zinc-800 rounded-lg">
+                 <EmojiPicker 
+                   onEmojiClick={handleEmojiClick}
+                   theme={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' as any : 'light' as any}
+                 />
+              </div>
+            )}
+          </div>
         </div>
-        <div className="relative">
-          <button
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-zinc-500 dark:text-gray-400 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded-md transition-colors"
-          >
-            <Smile className="w-4 h-4" />
-            Emoji
-          </button>
-          {showEmojiPicker && (
-            <div className="absolute right-0 top-full mt-2 z-50 shadow-xl border border-zinc-200 dark:border-zinc-800 rounded-lg">
-               <EmojiPicker 
-                 onEmojiClick={handleEmojiClick}
-                 theme={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' as any : 'light' as any}
-               />
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       {/* Main Layout Area */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -549,21 +551,57 @@ export default function App() {
       </div>
 
       {/* Footer Bar */}
-      <footer className="h-8 bg-zinc-50 dark:bg-[#16191E] border-t border-zinc-200 dark:border-[#2D3139] px-4 flex items-center justify-between text-[10px] sm:text-xs text-zinc-500 dark:text-gray-500 font-mono shrink-0">
-        <div className="flex items-center space-x-2 sm:space-x-4">
-          <div className="flex items-center gap-1 sm:gap-1.5 uppercase shrink-0">
-            <span className={`w-1.5 h-1.5 rounded-full ${fileSha ? 'bg-indigo-500' : 'bg-zinc-400 dark:bg-gray-500'}`}></span>
-            <span className="hidden sm:inline">{t.storage}</span>
+      {!isMobile && (
+        <footer className="h-8 bg-zinc-50 dark:bg-[#16191E] border-t border-zinc-200 dark:border-[#2D3139] px-4 flex items-center justify-between text-[10px] sm:text-xs text-zinc-500 dark:text-gray-500 font-mono shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-4">
+            <div className="flex items-center gap-1 sm:gap-1.5 uppercase shrink-0">
+              <span className={`w-1.5 h-1.5 rounded-full ${fileSha ? 'bg-indigo-500' : 'bg-zinc-400 dark:bg-gray-500'}`}></span>
+              <span className="hidden sm:inline">{t.storage}</span>
+            </div>
+            <div className="truncate max-w-[80px] sm:max-w-none">{config.encryptionKey ? t.aesActive : t.aesInactive}</div>
           </div>
-          <div className="truncate max-w-[80px] sm:max-w-none">{config.encryptionKey ? t.aesActive : t.aesInactive}</div>
-        </div>
-        <div className="flex items-center space-x-2 sm:space-x-4 overflow-hidden">
-          <span className="truncate">{t.lines} {text ? text.split('\n').length : 0}</span>
-          <span className="hidden sm:inline">{t.chars} {text.length}</span>
-          <span className="hidden md:inline">UTF-8</span>
-          <span className="text-indigo-600 dark:text-indigo-400 hidden sm:inline">{t.encryptionStatus}</span>
-        </div>
-      </footer>
+          <div className="flex items-center space-x-2 sm:space-x-4 overflow-hidden">
+            <span className="truncate">{t.lines} {text ? text.split('\n').length : 0}</span>
+            <span className="hidden sm:inline">{t.chars} {text.length}</span>
+            <span className="hidden md:inline">UTF-8</span>
+            <span className="text-indigo-600 dark:text-indigo-400 hidden sm:inline">{t.encryptionStatus}</span>
+          </div>
+        </footer>
+      )}
+
+      {/* Bottom Navigation (Mobile Only) */}
+      {isMobile && (
+        <nav className="box-content h-14 border-t border-zinc-200 dark:border-[#2D3139] bg-white dark:bg-[#16191E] shrink-0 flex justify-around items-center px-2 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_10px_rgba(0,0,0,0.05)] dark:shadow-[0_-4px_10px_rgba(0,0,0,0.2)] z-10">
+          <button 
+            onClick={() => { setIsExplorerOpen(!isExplorerOpen); setIsConfigOpen(false); setIsHistoryOpen(false); setIsSearchOpen(false); }} 
+            className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${isExplorerOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
+          >
+            <PanelLeft className="w-5 h-5 mb-1" />
+            <span className="text-[10px] font-medium">Files</span>
+          </button>
+          <button 
+            onClick={() => { setViewMode('editor'); setIsExplorerOpen(false); setIsConfigOpen(false); setIsHistoryOpen(false); setIsSearchOpen(false); }}
+            className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${viewMode === 'editor' && !isExplorerOpen && !isConfigOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
+          >
+            <Type className="w-5 h-5 mb-1" />
+            <span className="text-[10px] font-medium">{t.editor}</span>
+          </button>
+          <button 
+            onClick={() => { setViewMode('preview'); setIsExplorerOpen(false); setIsConfigOpen(false); setIsHistoryOpen(false); setIsSearchOpen(false); }}
+            className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${viewMode === 'preview' && !isExplorerOpen && !isConfigOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
+          >
+            <Eye className="w-5 h-5 mb-1" />
+            <span className="text-[10px] font-medium">{t.preview}</span>
+          </button>
+          <button 
+            onClick={() => { setIsConfigOpen(true); setIsExplorerOpen(false); setIsHistoryOpen(false); setIsSearchOpen(false); }}
+            className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${isConfigOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
+          >
+            <Settings className="w-5 h-5 mb-1" />
+            <span className="text-[10px] font-medium">{t.settings}</span>
+          </button>
+        </nav>
+      )}
 
       {/* Overlays */}
       {(isConfigOpen || isHistoryOpen || isSearchOpen) && (

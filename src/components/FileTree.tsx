@@ -218,7 +218,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       if (node.type === 'tree') {
         return (
           <div key={node.path}>
-            <div className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-base group`} style={{ paddingLeft: `${depth * 14 + 8}px` }}>
+            <div className={`w-full flex items-center justify-between py-1.5 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-base group`} style={{ paddingLeft: `${depth * 14 + 8}px` }}>
               <button
                 onClick={() => toggleFolder(node.path)}
                 className="flex items-center gap-2 flex-1 truncate text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
@@ -268,7 +268,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       return (
         <div 
           key={node.path}
-          className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-base group ${isActive ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'}`}
+          className={`w-full flex items-center justify-between py-1.5 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-base group ${isActive ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'}`}
           style={{ paddingLeft: `${depth * 14 + 28}px` }}
         >
           <button
