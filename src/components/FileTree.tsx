@@ -122,7 +122,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
   const handleDelete = async (path: string, isDirectory: boolean) => {
     if (!confirm(`Are you sure you want to delete ${isDirectory ? 'folder' : 'file'}: ${path}?`)) return;
     
-    const isLocalOnly = getLocalFiles().includes(path) && !tree.some(n => n.path === path && !getLocalFiles().includes(path));
+    const isLocalOnly = !tree.some(n => (n.path === path || n.path.startsWith(path + '/')) && !getLocalFiles().includes(n.path));
     
     removeLocalFile(path);
     localStorage.removeItem('file:' + path);
@@ -168,7 +168,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
 
     setIsRenaming(true);
     try {
-      const isLocalOnly = getLocalFiles().includes(path) && !tree.some(n => n.path === path && !getLocalFiles().includes(path));
+      const isLocalOnly = !tree.some(n => (n.path === path || n.path.startsWith(path + '/')) && !getLocalFiles().includes(n.path));
       
       if (!isLocalOnly && config.githubToken && config.repoUrl) {
         await renamePathInGithub(config, path, newPath, isDirectory);

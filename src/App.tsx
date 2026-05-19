@@ -105,17 +105,22 @@ export default function App() {
         
         setOriginalText(remoteText);
         
-        if (isManual || text === '' || text === '__LOADING__') {
-          // Overwrite local content during pull or if local is empty
-          setText(remoteText);
-          if (config.filePath) {
-            localStorage.setItem('file:' + config.filePath, remoteText);
+        setText(prevText => {
+          if (isManual || prevText === '' || prevText === '__LOADING__') {
+            if (config.filePath) {
+              localStorage.setItem('file:' + config.filePath, remoteText);
+            }
+            return remoteText;
           }
-        }
+          return prevText;
+        });
       } else {
-        if (isManual || text === '' || text === '__LOADING__') {
-          setText('');
-        }
+        setText(prevText => {
+          if (isManual || prevText === '__LOADING__') {
+            return '';
+          }
+          return prevText;
+        });
         setOriginalText('');
         setFileSha(null);
       }
@@ -483,7 +488,7 @@ export default function App() {
 
         {/* Main Editor */}
         <main className="flex-1 flex bg-white dark:bg-[#0A0C0E] overflow-hidden relative">
-          {((viewMode === 'editor' || viewMode === 'split') && (!isMobile || viewMode !== 'preview')) && (
+          {(viewMode === 'editor' || viewMode === 'split') && (
             <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
               <Editor
                 value={text}
