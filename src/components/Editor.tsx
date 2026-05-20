@@ -27,14 +27,13 @@ function emojiCompletion(context: CompletionContext) {
   }
 
   const query = word.text.slice(1);
-  const results = emoji.search(query).slice(0, 10);
-  console.log("emoji search results:", results);
+  const results = emoji.search(query).slice(0, 50);
   
   return {
     from: word.from,
     options: results.map(r => ({
-      // In CM6, label is shown, apply is applied
-      label: r.emoji + ' ' + r.name,
+      label: ':' + r.name,
+      detail: r.emoji,
       apply: r.emoji,
       type: 'text'
     })),
