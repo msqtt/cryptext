@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import mermaid from 'mermaid';
+import { ZoomableView } from './ZoomableView';
 
 export const MermaidBlock: React.FC<{ chart: string }> = ({ chart }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -34,7 +35,11 @@ export const MermaidBlock: React.FC<{ chart: string }> = ({ chart }) => {
   }
 
   if (svgStr) {
-    return <div className="flex justify-center my-6" dangerouslySetInnerHTML={{ __html: svgStr }} />;
+    return (
+      <ZoomableView>
+        <div className="flex justify-center my-6" dangerouslySetInnerHTML={{ __html: svgStr }} />
+      </ZoomableView>
+    );
   }
 
   return <div className="p-4 text-center text-zinc-500 animate-pulse">Rendering chart...</div>;

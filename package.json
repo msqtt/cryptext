@@ -42,6 +42,7 @@
     "react-dom": "^19.0.1",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.1",
+    "react-zoom-pan-pinch": "^4.0.3",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.6.0",
     "textarea-caret": "^3.1.0",

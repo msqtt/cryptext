@@ -14,6 +14,7 @@ import remarkGfm from 'remark-gfm';
 import EmojiPicker from 'emoji-picker-react';
 import { MermaidBlock } from './components/MermaidBlock';
 import { PlantUMLBlock } from './components/PlantUMLBlock';
+import { ZoomableView } from './components/ZoomableView';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -513,6 +514,13 @@ export default function App() {
                   <Markdown 
                     remarkPlugins={[remarkGfm]}
                     components={{
+                      img({node, ...props}: any) {
+                        return (
+                          <ZoomableView>
+                            <img {...props} className="max-w-full rounded-md shadow-sm" />
+                          </ZoomableView>
+                        );
+                      },
                       code({node, inline, className, children, ...props}: any) {
                         const match = /language-(\w+)/.exec(className || '')
                         const lang = match ? match[1] : ''

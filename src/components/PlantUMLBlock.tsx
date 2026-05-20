@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import plantumlEncoder from 'plantuml-encoder';
+import { ZoomableView } from './ZoomableView';
 
 export const PlantUMLBlock: React.FC<{ code: string }> = ({ code }) => {
   const url = useMemo(() => {
@@ -18,7 +19,9 @@ export const PlantUMLBlock: React.FC<{ code: string }> = ({ code }) => {
 
   return (
     <div className="flex justify-center my-6 bg-white p-4 rounded-lg">
-      <img src={url} alt="PlantUML diagram" className="max-w-full" />
+      <ZoomableView>
+        <img src={url} alt="PlantUML diagram" className="max-w-full" />
+      </ZoomableView>
     </div>
   );
 };
