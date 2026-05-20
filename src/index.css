@@ -7,3 +7,43 @@ html, body, #root {
   margin: 0;
   overflow: hidden;
 }
+
+/* Ensure smooth transition of layout styles specifically for markdown prose elements with data-line attributes */
+.prose [data-line] {
+  position: relative;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.prose [data-line]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 2px;
+  bottom: 2px;
+  width: 3.5px;
+  background-color: transparent;
+  border-radius: 9999px;
+  transition: background-color 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Custom styles for highlighted block corresponding to editor cursor position */
+.prose [data-line].active-markdown-block {
+  padding-left: 0.75rem !important;
+  background-color: rgba(99, 102, 241, 0.05) !important;
+  border-radius: 0.375rem;
+}
+
+.prose [data-line].active-markdown-block::before {
+  background-color: #6366f1 !important; /* indigo-500 */
+}
+
+.dark .prose [data-line].active-markdown-block {
+  background-color: rgba(129, 140, 248, 0.08) !important;
+}
+
+.dark .prose [data-line].active-markdown-block::before {
+  background-color: #818cf8 !important; /* indigo-400 */
+}
+

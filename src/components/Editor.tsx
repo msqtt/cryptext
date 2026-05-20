@@ -13,7 +13,7 @@ export interface EditorProps extends ReactCodeMirrorProps {
   vimMode?: boolean;
   vimKeyBindings?: string;
   themeType?: 'light' | 'dark' | 'system';
-  onCursorLineChange?: (line: number, totalLines: number) => void;
+  onCursorLineChange?: (line: number, totalLines: number, ratioY?: number) => void;
 }
 
 function emojiCompletion(context: CompletionContext) {
@@ -134,12 +134,27 @@ export const Editor: React.FC<EditorProps> = ({ vimMode, vimKeyBindings, themeTy
         if (props.onUpdate) {
           props.onUpdate(update);
         }
-        if (onCursorLineChange && update.selectionSet) {
+        if (onCursorLineChange) {
           try {
             const head = update.state.selection.main.head;
             const line = update.state.doc.lineAt(head).number;
             const total = update.state.doc.lines;
-            onCursorLineChange(line, total);
+
+            // Fetch the bounding box of the editor scroller and the active cursor
+            const scrollDOM = update.view.scrollDOM;
+            const scrollerRect = scrollDOM?.getBoundingClientRect();
+            const cursorCoords = update.view.coordsAtPos(head);
+
+            let ratioY = 0.3; // Default upper-mid focus
+            if (cursorCoords && scrollerRect && scrollerRect.height > 0) {
+              const cursorYInScroller = cursorCoords.top - scrollerRect.top;
+              ratioY = Math.max(0, Math.min(1, cursorYInScroller / scrollerRect.height));
+            }
+
+            // We trigger if the selection set changes OR when scrolling/view geometry changes (e.g. Vim zz)
+            if (update.selectionSet || update.viewportChanged || update.geometryChanged) {
+              onCursorLineChange(line, total, ratioY);
+            }
           } catch (e) {
             console.error('Failed to get line from update', e);
           }

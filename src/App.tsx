@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useDeferredValue } from 'react';
 import { useConfig } from './hooks/useConfig';
 import { ConfigPanel } from './components/ConfigPanel';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -7,7 +7,7 @@ import { Editor } from './components/Editor';
 import { SearchPanel } from './components/SearchPanel';
 import { fetchFileFromGithub, saveFileToGithub } from './lib/github';
 import { encryptLine, decryptLine } from './lib/crypto';
-import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye, Sparkles } from 'lucide-react';
+import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye } from 'lucide-react';
 import { i18n } from './lib/i18n';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -15,7 +15,7 @@ import EmojiPicker from 'emoji-picker-react';
 import { MermaidBlock } from './components/MermaidBlock';
 import { PlantUMLBlock } from './components/PlantUMLBlock';
 import { ZoomableView } from './components/ZoomableView';
-import { WYSIWYGEditor } from './components/WYSIWYGEditor';
+import { CSVViewer } from './components/CSVViewer';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -34,18 +34,139 @@ export default function App() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const [viewMode, setViewMode] = useState<'editor' | 'split' | 'wysiwyg' | 'preview'>('editor');
+  const [viewMode, setViewMode] = useState<'editor' | 'split' | 'preview'>('editor');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const previewContainerRef = useRef<HTMLDivElement>(null);
 
-  const handleCursorLineChange = (line: number, totalLines: number) => {
+  const deferredText = useDeferredValue(text);
+
+  const lastLineRef = useRef<number>(-1);
+  const lastRatioYRef = useRef<number>(-1);
+
+  const handleCursorLineChange = (line: number, totalLines: number, ratioY: number = 0.3) => {
     if (viewMode === 'split' && previewContainerRef.current) {
-      const container = previewContainerRef.current;
-      const ratio = (line - 1) / Math.max(1, totalLines - 1);
-      container.scrollTo({
-        top: ratio * (container.scrollHeight - container.clientHeight),
-        behavior: 'smooth'
-      });
+      // Find the actual scrollable child inside our preview container (which has overflow-y-auto class)
+      const container = (previewContainerRef.current.querySelector('.overflow-y-auto') as HTMLElement) || previewContainerRef.current;
+      
+      // Prevent redundant scroll triggers while typing on the same line/area
+      const lineChanged = line !== lastLineRef.current;
+      const ratioChanged = Math.abs(ratioY - lastRatioYRef.current) > 0.01;
+      
+      if (!lineChanged && !ratioChanged) {
+        return;
+      }
+      
+      lastLineRef.current = line;
+      lastRatioYRef.current = ratioY;
+
+      // Remove previous active highlights on line limit changes
+      if (lineChanged) {
+        container.querySelectorAll('.active-markdown-block').forEach((el) => {
+          el.classList.remove('active-markdown-block');
+        });
+      }
+
+      // Helper function to calculate precise relative offset coordinates within scrollable element
+      const getRelativeOffsetTop = (target: HTMLElement, parent: HTMLElement) => {
+        const targetRect = target.getBoundingClientRect();
+        const parentRect = parent.getBoundingClientRect();
+        return targetRect.top - parentRect.top + parent.scrollTop;
+      };
+
+      const relativeOf = (el: HTMLElement) => getRelativeOffsetTop(el, container);
+
+      // Extract all elements with data-line attributes
+      const elements = Array.from(container.querySelectorAll('[data-line]')) as HTMLElement[];
+      
+      if (elements.length === 0) {
+        // Fall back to simple percentage mapping
+        const pct = (line - 1) / Math.max(1, totalLines - 1);
+        const maxScroll = container.scrollHeight - container.clientHeight;
+        const target = pct * maxScroll;
+        
+        if (Math.abs(container.scrollTop - target) >= 5) {
+          container.scrollTo({
+            top: target,
+            behavior: 'smooth'
+          });
+        }
+        return;
+      }
+
+      // Sort elements by their data-line attribute value
+      const parsedElements = elements
+        .map(el => ({
+          el,
+          line: parseInt(el.getAttribute('data-line') || '0', 10)
+        }))
+        .filter(item => item.line > 0)
+        .sort((a, b) => a.line - b.line);
+
+      if (parsedElements.length === 0) {
+        return;
+      }
+
+      // Find floor (closest line <= current line) and ceiling (closest line > current line)
+      let floor: { el: HTMLElement; line: number } | null = null;
+      let ceiling: { el: HTMLElement; line: number } | null = null;
+
+      for (let i = 0; i < parsedElements.length; i++) {
+        const item = parsedElements[i];
+        if (item.line <= line) {
+          floor = item;
+        } else {
+          ceiling = item;
+          break;
+        }
+      }
+
+      // Apply dynamic highlighting to current block
+      if (floor && lineChanged) {
+        floor.el.classList.add('active-markdown-block');
+      }
+
+      let targetTop = 0;
+
+      if (!floor) {
+        // Cursor is before the first mapped element
+        const first = parsedElements[0];
+        const ratio = line / first.line;
+        targetTop = relativeOf(first.el) * ratio;
+      } else if (!ceiling) {
+        // Cursor is after the last mapped element
+        const last = floor;
+        const remainingLines = totalLines - last.line;
+        if (remainingLines > 0) {
+          const ratio = (line - last.line) / remainingLines;
+          const maxScroll = container.scrollHeight - container.clientHeight;
+          targetTop = relativeOf(last.el) + ratio * (maxScroll - relativeOf(last.el));
+        } else {
+          targetTop = relativeOf(last.el);
+        }
+      } else {
+        // Line lies between floor and ceiling elements - interpolate relative position!
+        const lineDiff = ceiling.line - floor.line;
+        const ratio = lineDiff > 0 ? (line - floor.line) / lineDiff : 0;
+        const floorTop = relativeOf(floor.el);
+        const ceilingTop = relativeOf(ceiling.el);
+        targetTop = floorTop + ratio * (ceilingTop - floorTop);
+      }
+
+      // Align target scroll position so that the mapped element is placed precisely
+      // at the corresponding ratioY vertical position in the preview viewport!
+      const containerHeight = container.clientHeight;
+      const adjustedTarget = Math.max(0, targetTop - (ratioY * containerHeight));
+
+      const currentScrollTop = container.scrollTop;
+      const diff = Math.abs(currentScrollTop - adjustedTarget);
+      
+      // Only scroll if change is greater than 5 pixels to avoid jitter
+      if (diff >= 5) {
+        container.scrollTo({
+          top: adjustedTarget,
+          behavior: 'smooth'
+        });
+      }
     }
   };
 
@@ -445,13 +566,6 @@ export default function App() {
               </button>
             )}
             <button 
-              onClick={() => setViewMode('wysiwyg')}
-              className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'wysiwyg' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{t.wysiwyg || 'WYSIWYG'}</span>
-            </button>
-            <button 
               onClick={() => setViewMode('preview')}
               className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'preview' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
             >
@@ -509,81 +623,107 @@ export default function App() {
 
         {/* Main Editor */}
         <main className="flex-1 flex bg-white dark:bg-[#0A0C0E] overflow-hidden relative">
-          {viewMode === 'wysiwyg' ? (
-            <div className="flex-1 h-full overflow-hidden">
-              <WYSIWYGEditor
+          {(viewMode === 'editor' || viewMode === 'split') && (
+            <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
+              <Editor
                 value={text}
                 onChange={handleTextChange}
-                theme={config.theme}
+                className="w-full h-full text-lg [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
+                editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
+                vimMode={config.vimMode}
+                vimKeyBindings={config.vimKeyBindings}
+                themeType={config.theme}
+                onCursorLineChange={handleCursorLineChange}
               />
             </div>
-          ) : (
-            <>
-              {(viewMode === 'editor' || viewMode === 'split') && (
-                <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
-                  <Editor
-                    value={text}
-                    onChange={handleTextChange}
-                    className="w-full h-full text-lg [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
-                    editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
-                    vimMode={config.vimMode}
-                    vimKeyBindings={config.vimKeyBindings}
-                    themeType={config.theme}
-                    onCursorLineChange={handleCursorLineChange}
-                  />
-                </div>
-              )}
+          )}
 
-              {((viewMode === 'split' || viewMode === 'preview') && (!isMobile || viewMode === 'preview')) && (
-                <div ref={previewContainerRef} className={`p-4 sm:p-6 overflow-y-auto ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1 lg:px-20'}`}>
-                  {config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
-                <div className={`prose prose-zinc prose-lg dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
-                    prose-headings:font-semibold prose-a:text-indigo-500 
-                    prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
-                    prose-code:before:content-none prose-code:after:content-none
-                    prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none`}>
-                  <Markdown 
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      img({node, ...props}: any) {
-                        return (
-                          <ZoomableView>
-                            <img {...props} className="max-w-full rounded-md shadow-sm" />
-                          </ZoomableView>
-                        );
-                      },
-                      code({node, inline, className, children, ...props}: any) {
-                        const match = /language-(\w+)/.exec(className || '')
-                        const lang = match ? match[1] : ''
-                        if (!inline && lang === 'mermaid') {
-                          return <MermaidBlock chart={String(children).replace(/\n$/, '')} />
+          {((viewMode === 'split' || viewMode === 'preview') && (!isMobile || viewMode === 'preview')) && (
+            <div ref={previewContainerRef} className={`overflow-hidden h-full flex flex-col ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1'}`}>
+              {config.filePath && config.filePath.toLowerCase().endsWith('.csv') ? (
+                <CSVViewer
+                  value={text}
+                  onChange={handleTextChange}
+                  theme={config.theme}
+                />
+              ) : config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
+                <div className="p-4 sm:p-6 overflow-y-auto h-full">
+                  <div className={`prose prose-zinc prose-lg dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
+                      prose-headings:font-semibold prose-a:text-indigo-500 
+                      prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
+                      prose-code:before:content-none prose-code:after:content-none
+                      prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none`}>
+                    <Markdown 
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        h1: ({node, ...props}: any) => <h1 data-line={node?.position?.start?.line} {...props} />,
+                        h2: ({node, ...props}: any) => <h2 data-line={node?.position?.start?.line} {...props} />,
+                        h3: ({node, ...props}: any) => <h3 data-line={node?.position?.start?.line} {...props} />,
+                        h4: ({node, ...props}: any) => <h4 data-line={node?.position?.start?.line} {...props} />,
+                        h5: ({node, ...props}: any) => <h5 data-line={node?.position?.start?.line} {...props} />,
+                        h6: ({node, ...props}: any) => <h6 data-line={node?.position?.start?.line} {...props} />,
+                        p: ({node, ...props}: any) => <p data-line={node?.position?.start?.line} {...props} />,
+                        ul: ({node, ...props}: any) => <ul data-line={node?.position?.start?.line} {...props} />,
+                        ol: ({node, ...props}: any) => <ol data-line={node?.position?.start?.line} {...props} />,
+                        li: ({node, ...props}: any) => <li data-line={node?.position?.start?.line} {...props} />,
+                        blockquote: ({node, ...props}: any) => <blockquote data-line={node?.position?.start?.line} {...props} />,
+                        table: ({node, ...props}: any) => (
+                          <div data-line={node?.position?.start?.line} className="my-4 overflow-x-auto w-full border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50/30 dark:bg-zinc-950/20">
+                            <table {...props} className="w-full !my-0" />
+                          </div>
+                        ),
+                        pre: ({node, ...props}: any) => <pre data-line={node?.position?.start?.line} {...props} />,
+                        img({node, ...props}: any) {
+                          return (
+                            <div data-line={node?.position?.start?.line}>
+                              <ZoomableView>
+                                <img {...props} className="max-w-full rounded-md shadow-sm" />
+                              </ZoomableView>
+                            </div>
+                          );
+                        },
+                        code({node, inline, className, children, ...props}: any) {
+                          const match = /language-(\w+)/.exec(className || '')
+                          const lang = match ? match[1] : ''
+                          
+                          let rendered;
+                          if (!inline && lang === 'mermaid') {
+                            rendered = <MermaidBlock chart={String(children).replace(/\n$/, '')} />
+                          } else if (!inline && (lang === 'plantuml' || lang === 'puml')) {
+                            rendered = <PlantUMLBlock code={String(children).replace(/\n$/, '')} />
+                          } else if (!inline && match) {
+                            rendered = (
+                              <SyntaxHighlighter
+                                style={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? vscDarkPlus as any : vs as any}
+                                language={lang}
+                                PreTag="div"
+                                className="rounded-md border border-zinc-200 dark:border-zinc-800 !my-0 !bg-zinc-50 dark:!bg-[#111318]"
+                                {...props}
+                              >
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            )
+                          } else {
+                            rendered = (
+                              <code className={className} {...props}>
+                                {children}
+                              </code>
+                            )
+                          }
+
+                          if (!inline) {
+                            return <div data-line={node?.position?.start?.line} className="my-4 w-full">{rendered}</div>;
+                          }
+                          return rendered;
                         }
-                        if (!inline && (lang === 'plantuml' || lang === 'puml')) {
-                          return <PlantUMLBlock code={String(children).replace(/\n$/, '')} />
-                        }
-                        return !inline && match ? (
-                          <SyntaxHighlighter
-                            style={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? vscDarkPlus as any : vs as any}
-                            language={lang}
-                            PreTag="div"
-                            className="rounded-md border border-zinc-200 dark:border-zinc-800 !my-0 !bg-zinc-50 dark:!bg-[#111318]"
-                            {...props}
-                          >
-                            {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
-                        ) : (
-                          <code className={className} {...props}>
-                            {children}
-                          </code>
-                        )
-                      }
-                    }}
-                  >
-                    {text || '*No content to preview*'}
-                  </Markdown>
+                      }}
+                    >
+                      {deferredText || '*No content to preview*'}
+                    </Markdown>
+                  </div>
                 </div>
               ) : (
-                <div className={viewMode === 'preview' ? 'max-w-[1000px] mx-auto h-full' : 'h-full'}>
+                <div className={`p-4 sm:p-6 overflow-y-auto h-full ${viewMode === 'preview' ? 'max-w-[1000px] mx-auto' : ''}`}>
                   <pre className="font-mono text-base whitespace-pre-wrap break-words text-zinc-800 dark:text-zinc-200">
                     {text || 'No content'}
                   </pre>
@@ -591,9 +731,7 @@ export default function App() {
               )}
             </div>
           )}
-        </>
-      )}
-    </main>
+        </main>
       </div>
 
       {/* Footer Bar */}
@@ -631,13 +769,6 @@ export default function App() {
           >
             <Type className="w-5 h-5 mb-1" />
             <span className="text-[10px] font-medium">{t.editor}</span>
-          </button>
-          <button 
-            onClick={() => { setViewMode('wysiwyg'); setIsExplorerOpen(false); setIsConfigOpen(false); setIsHistoryOpen(false); setIsSearchOpen(false); }}
-            className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${viewMode === 'wysiwyg' && !isExplorerOpen && !isConfigOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
-          >
-            <Sparkles className="w-5 h-5 mb-1" />
-            <span className="text-[10px] font-medium">{t.wysiwyg || 'WYSIWYG'}</span>
           </button>
           <button 
             onClick={() => { setViewMode('preview'); setIsExplorerOpen(false); setIsConfigOpen(false); setIsHistoryOpen(false); setIsSearchOpen(false); }}
