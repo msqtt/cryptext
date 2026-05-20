@@ -7,7 +7,7 @@ import { Editor } from './components/Editor';
 import { SearchPanel } from './components/SearchPanel';
 import { fetchFileFromGithub, saveFileToGithub } from './lib/github';
 import { encryptLine, decryptLine } from './lib/crypto';
-import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye } from 'lucide-react';
+import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye, Sparkles } from 'lucide-react';
 import { i18n } from './lib/i18n';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -15,6 +15,7 @@ import EmojiPicker from 'emoji-picker-react';
 import { MermaidBlock } from './components/MermaidBlock';
 import { PlantUMLBlock } from './components/PlantUMLBlock';
 import { ZoomableView } from './components/ZoomableView';
+import { WYSIWYGEditor } from './components/WYSIWYGEditor';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
@@ -33,8 +34,20 @@ export default function App() {
   const [status, setStatus] = useState<'idle' | 'loading' | 'saving' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
-  const [viewMode, setViewMode] = useState<'editor' | 'split' | 'preview'>('editor');
+  const [viewMode, setViewMode] = useState<'editor' | 'split' | 'wysiwyg' | 'preview'>('editor');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleCursorLineChange = (line: number, totalLines: number) => {
+    if (viewMode === 'split' && previewContainerRef.current) {
+      const container = previewContainerRef.current;
+      const ratio = (line - 1) / Math.max(1, totalLines - 1);
+      container.scrollTo({
+        top: ratio * (container.scrollHeight - container.clientHeight),
+        behavior: 'smooth'
+      });
+    }
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -432,6 +445,13 @@ export default function App() {
               </button>
             )}
             <button 
+              onClick={() => setViewMode('wysiwyg')}
+              className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'wysiwyg' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>{t.wysiwyg || 'WYSIWYG'}</span>
+            </button>
+            <button 
               onClick={() => setViewMode('preview')}
               className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'preview' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
             >
@@ -489,23 +509,34 @@ export default function App() {
 
         {/* Main Editor */}
         <main className="flex-1 flex bg-white dark:bg-[#0A0C0E] overflow-hidden relative">
-          {(viewMode === 'editor' || viewMode === 'split') && (
-            <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
-              <Editor
+          {viewMode === 'wysiwyg' ? (
+            <div className="flex-1 h-full overflow-hidden">
+              <WYSIWYGEditor
                 value={text}
                 onChange={handleTextChange}
-                className="w-full h-full text-lg [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
-                editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
-                vimMode={config.vimMode}
-                vimKeyBindings={config.vimKeyBindings}
-                themeType={config.theme}
+                theme={config.theme}
               />
             </div>
-          )}
+          ) : (
+            <>
+              {(viewMode === 'editor' || viewMode === 'split') && (
+                <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
+                  <Editor
+                    value={text}
+                    onChange={handleTextChange}
+                    className="w-full h-full text-lg [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
+                    editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
+                    vimMode={config.vimMode}
+                    vimKeyBindings={config.vimKeyBindings}
+                    themeType={config.theme}
+                    onCursorLineChange={handleCursorLineChange}
+                  />
+                </div>
+              )}
 
-          {((viewMode === 'split' || viewMode === 'preview') && (!isMobile || viewMode === 'preview')) && (
-            <div className={`p-4 sm:p-6 overflow-y-auto ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1 lg:px-20'}`}>
-              {config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
+              {((viewMode === 'split' || viewMode === 'preview') && (!isMobile || viewMode === 'preview')) && (
+                <div ref={previewContainerRef} className={`p-4 sm:p-6 overflow-y-auto ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1 lg:px-20'}`}>
+                  {config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
                 <div className={`prose prose-zinc prose-lg dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
                     prose-headings:font-semibold prose-a:text-indigo-500 
                     prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
@@ -560,7 +591,9 @@ export default function App() {
               )}
             </div>
           )}
-        </main>
+        </>
+      )}
+    </main>
       </div>
 
       {/* Footer Bar */}
@@ -598,6 +631,13 @@ export default function App() {
           >
             <Type className="w-5 h-5 mb-1" />
             <span className="text-[10px] font-medium">{t.editor}</span>
+          </button>
+          <button 
+            onClick={() => { setViewMode('wysiwyg'); setIsExplorerOpen(false); setIsConfigOpen(false); setIsHistoryOpen(false); setIsSearchOpen(false); }}
+            className={`flex flex-col items-center justify-center w-16 h-full transition-colors ${viewMode === 'wysiwyg' && !isExplorerOpen && !isConfigOpen ? 'text-indigo-600 dark:text-indigo-400' : 'text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-zinc-200'}`}
+          >
+            <Sparkles className="w-5 h-5 mb-1" />
+            <span className="text-[10px] font-medium">{t.wysiwyg || 'WYSIWYG'}</span>
           </button>
           <button 
             onClick={() => { setViewMode('preview'); setIsExplorerOpen(false); setIsConfigOpen(false); setIsHistoryOpen(false); setIsSearchOpen(false); }}

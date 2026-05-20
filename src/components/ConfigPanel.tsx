@@ -11,76 +11,50 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-interface CustomSelectProps {
+interface StyledSelectProps {
   name: string;
-  options: { label: string; value: string }[];
   value: string;
   onChange: (e: any) => void;
+  options: { label: string; value: string }[];
   icon?: React.ElementType;
   disabled?: boolean;
   placeholder?: string;
   loading?: boolean;
 }
 
-function CustomSelect({ name, options, value, onChange, icon: Icon, disabled = false, placeholder = '', loading = false }: CustomSelectProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (ref.current && !ref.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const selectedOption = options.find(o => o.value === value) || (value ? { label: value, value: value } : null);
-
+function StyledSelect({ name, value, onChange, options, icon: Icon, disabled = false, placeholder = '', loading = false }: StyledSelectProps) {
   return (
-    <div className="relative" ref={ref}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setIsOpen(!isOpen)}
+    <div className="relative w-full">
+      <select
+        name={name}
+        value={value}
+        onChange={onChange}
+        disabled={disabled || loading}
         className={cn(
-          "w-full flex items-center justify-between text-left bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#353A45] rounded-lg py-2 pl-9 pr-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all shadow-sm",
-          disabled ? "opacity-50 cursor-not-allowed" : "hover:border-zinc-300 dark:hover:border-[#4B5263] cursor-pointer"
+          "w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-lg py-2.5 pl-9 pr-10 text-xs font-semibold text-zinc-900 dark:text-[#E0E0E0] outline-none transition-all shadow-sm cursor-pointer appearance-none",
+          "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10",
+          disabled ? "opacity-55 cursor-not-allowed bg-zinc-50 dark:bg-[#0F1115]" : "hover:border-zinc-300 dark:hover:border-[#3E4552]"
         )}
       >
-        <span className="block truncate text-zinc-900 dark:text-[#E0E0E0]">
-           {selectedOption ? selectedOption.label : placeholder}
-        </span>
-        {loading ? <Loader2 className="w-4 h-4 text-zinc-400 animate-spin shrink-0" /> : <ChevronDown className="w-4 h-4 text-zinc-400 dark:text-gray-500 shrink-0 transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />}
-      </button>
+        {placeholder && <option value="" disabled>{placeholder}</option>}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
       {Icon && (
-        <span className="absolute left-3 top-2.5 text-zinc-400 dark:text-gray-500 pointer-events-none">
+        <span className="absolute left-3 top-3.5 text-zinc-400 dark:text-gray-500 pointer-events-none">
           <Icon className="w-4 h-4" />
         </span>
       )}
-      {isOpen && !disabled && (
-        <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-[#1F232B] border border-zinc-200 dark:border-[#353A45] rounded-lg shadow-xl max-h-60 overflow-y-auto py-1">
-          {options.length === 0 && (
-             <div className="py-2 px-3 text-sm text-zinc-500 dark:text-gray-400">No options available</div>
-          )}
-          {options.map((option) => (
-            <div
-              key={option.value}
-              className={cn(
-                "cursor-pointer select-none py-2 px-3 text-sm flex items-center transition-colors",
-                value === option.value ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium" : "text-zinc-700 dark:text-[#E0E0E0] hover:bg-zinc-100 dark:hover:bg-[#2D3139]"
-              )}
-              onClick={() => {
-                onChange({ target: { name, value: option.value } });
-                setIsOpen(false);
-              }}
-            >
-              <span className="block truncate w-full" title={option.label}>{option.label}</span>
-            </div>
-          ))}
-        </div>
-      )}
+      <span className="absolute right-3 top-3.5 text-zinc-400 dark:text-gray-500 pointer-events-none">
+        {loading ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <ChevronDown className="w-4 h-4" />
+        )}
+      </span>
     </div>
   );
 }
@@ -205,32 +179,63 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
           )}
 
           <div className="space-y-2">
-            <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.theme}</label>
-            <CustomSelect
-              name="theme"
-              options={[
-                { label: t.autoDetect, value: 'system' },
-                { label: t.light, value: 'light' },
-                { label: t.dark, value: 'dark' },
-              ]}
-              value={config.theme || 'system'}
-              onChange={handleChange}
-              icon={Monitor}
-            />
+            <label className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider block ml-1">{t.theme}</label>
+            <div className="grid grid-cols-3 gap-1 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800">
+              {[
+                { label: t.autoDetect, value: 'system', icon: Monitor },
+                { label: t.light, value: 'light', icon: null },
+                { label: t.dark, value: 'dark', icon: null }
+              ].map((item) => {
+                const active = (config.theme || 'system') === item.value;
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => updateConfig({ theme: item.value as any })}
+                    className={cn(
+                      "py-1.5 px-1.5 rounded-md text-xs font-semibold flex items-center justify-center gap-1 transition-all",
+                      active
+                        ? "bg-white dark:bg-[#1C1F26] shadow-sm text-indigo-600 dark:text-indigo-400 border border-zinc-200/40 dark:border-zinc-850"
+                        : "text-zinc-650 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-gray-200"
+                    )}
+                  >
+                    {item.icon && <item.icon className="w-3.5 h-3.5" />}
+                    {item.value === 'light' && <span className="text-xs">☀️</span>}
+                    {item.value === 'dark' && <span className="text-xs">🌙</span>}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.language}</label>
-            <CustomSelect
-              name="language"
-              options={[
+            <label className="text-xs font-semibold text-zinc-500 dark:text-gray-400 uppercase tracking-wider block ml-1">{t.language}</label>
+            <div className="grid grid-cols-2 gap-1 bg-zinc-100 dark:bg-zinc-900 p-1 rounded-lg border border-zinc-200 dark:border-zinc-800">
+              {[
                 { label: 'English', value: 'en' },
-                { label: '中文', value: 'zh' },
-              ]}
-              value={config.language || 'en'}
-              onChange={handleChange}
-              icon={Globe}
-            />
+                { label: '中文', value: 'zh' }
+              ].map((item) => {
+                const active = (config.language || 'en') === item.value;
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => updateConfig({ language: item.value as any })}
+                    className={cn(
+                      "py-1.5 px-2 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all text-center",
+                      active
+                        ? "bg-white dark:bg-[#1C1F26] shadow-sm text-indigo-600 dark:text-indigo-400 border border-zinc-200/40 dark:border-zinc-850"
+                        : "text-zinc-650 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-gray-200"
+                    )}
+                  >
+                    {item.value === 'en' && <span className="text-xs">🇺🇸</span>}
+                    {item.value === 'zh' && <span className="text-xs">🇨🇳</span>}
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
 
@@ -246,7 +251,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
               <input
                 type="password"
                 name="githubToken"
-                value={config.githubToken}
+                value={config.githubToken || ''}
                 onChange={handleChange}
                 placeholder="ghp_..."
                 className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
@@ -259,7 +264,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
             <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.repoUrl}</label>
             <div className="relative">
               {config.githubToken ? (
-                <CustomSelect
+                <StyledSelect
                   name="repoUrl"
                   options={repos.map(r => ({ label: r.full_name, value: r.html_url }))}
                   value={config.repoUrl || ''}
@@ -273,7 +278,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                 <input
                   type="text"
                   name="repoUrl"
-                  value={config.repoUrl}
+                  value={config.repoUrl || ''}
                   onChange={handleChange}
                   placeholder="https://github.com/user/repo"
                   className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
@@ -290,7 +295,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
             <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.branch}</label>
              <div className="relative">
               {config.githubToken && config.repoUrl ? (
-                <CustomSelect
+                <StyledSelect
                   name="branch"
                   options={[
                     ...(config.branch && !branches.some(b => b.name === config.branch) ? [{ label: config.branch, value: config.branch }] : []),
@@ -308,7 +313,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                   <input
                     type="text"
                     name="branch"
-                    value={config.branch}
+                    value={config.branch || ''}
                     onChange={handleChange}
                     placeholder="main"
                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"

@@ -13,6 +13,7 @@ export interface EditorProps extends ReactCodeMirrorProps {
   vimMode?: boolean;
   vimKeyBindings?: string;
   themeType?: 'light' | 'dark' | 'system';
+  onCursorLineChange?: (line: number, totalLines: number) => void;
 }
 
 function emojiCompletion(context: CompletionContext) {
@@ -46,7 +47,15 @@ const emojiExtension = autocompletion({ override: [emojiCompletion] });
 
 const removeOutline = EditorView.theme({
   "&.cm-focused": {
-    outline: "none"
+    outline: "none !important",
+    border: "none !important"
+  },
+  "& .cm-content": {
+    outline: "none !important",
+    border: "none !important"
+  },
+  "& .cm-scroller": {
+    outline: "none !important"
   }
 });
 
@@ -66,7 +75,7 @@ const triggerOnColonExtension = EditorView.updateListener.of((update) => {
   }
 });
 
-export const Editor: React.FC<EditorProps> = ({ vimMode, vimKeyBindings, themeType, ...props }) => {
+export const Editor: React.FC<EditorProps> = ({ vimMode, vimKeyBindings, themeType, onCursorLineChange, ...props }) => {
   useEffect(() => {
     if (vimMode && vimKeyBindings) {
       // Minimal parser for vim bindings
@@ -121,6 +130,21 @@ export const Editor: React.FC<EditorProps> = ({ vimMode, vimKeyBindings, themeTy
       {...props}
       theme={resolvedTheme}
       extensions={extensions}
+      onUpdate={(update) => {
+        if (props.onUpdate) {
+          props.onUpdate(update);
+        }
+        if (onCursorLineChange && update.selectionSet) {
+          try {
+            const head = update.state.selection.main.head;
+            const line = update.state.doc.lineAt(head).number;
+            const total = update.state.doc.lines;
+            onCursorLineChange(line, total);
+          } catch (e) {
+            console.error('Failed to get line from update', e);
+          }
+        }
+      }}
       basicSetup={{
         lineNumbers: false,
         foldGutter: false,

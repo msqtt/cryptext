@@ -1,9 +1,28 @@
 import React, { useState } from 'react';
-import { Maximize2, X, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Maximize2, X, ZoomIn, ZoomOut, RotateCcw, Paintbrush } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 export const ZoomableView: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [bgType, setBgType] = useState<'checkerboard' | 'white' | 'dark'>('checkerboard');
+
+  const cycleBg = () => {
+    if (bgType === 'checkerboard') setBgType('white');
+    else if (bgType === 'white') setBgType('dark');
+    else setBgType('checkerboard');
+  };
+
+  const currentStyle = bgType === 'checkerboard' ? {
+    backgroundImage: 'conic-gradient(#f3f4f6 0.25turn, #ffffff 0.25turn 0.5turn, #f3f4f6 0.5turn 0.75turn, #ffffff 0.75turn)',
+    backgroundSize: '16px 16px',
+    backgroundColor: '#ffffff'
+  } : bgType === 'white' ? {
+    backgroundColor: '#ffffff',
+    backgroundImage: 'none'
+  } : {
+    backgroundColor: '#18181b',
+    backgroundImage: 'none'
+  };
 
   return (
     <>
@@ -24,11 +43,21 @@ export const ZoomableView: React.FC<{ children: React.ReactNode }> = ({ children
             minScale={0.1}
             maxScale={8}
             centerOnInit
-            wheel={{ step: 0.05 }}
+            wheel={{ step: 0.015 }}
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
                 <div className="absolute top-4 right-4 flex items-center gap-2 z-[110]">
+                  <button 
+                    onClick={cycleBg} 
+                    className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors flex items-center gap-1 text-xs font-medium"
+                    title="Change background color"
+                  >
+                    <Paintbrush className="w-4 h-4" />
+                    <span>
+                      {bgType === 'checkerboard' ? 'Grid' : bgType === 'white' ? 'White' : 'Dark'}
+                    </span>
+                  </button>
                   <button onClick={() => zoomIn()} className="p-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors">
                     <ZoomIn className="w-5 h-5"/>
                   </button>
@@ -47,7 +76,10 @@ export const ZoomableView: React.FC<{ children: React.ReactNode }> = ({ children
                     wrapperStyle={{ width: '100%', height: '100%' }}
                     contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    <div className="bg-white dark:bg-[#16191E] p-4 rounded-xl shadow-2xl">
+                    <div 
+                      className="p-6 rounded-xl shadow-2xl transition-colors duration-200 border border-zinc-200 dark:border-zinc-800"
+                      style={currentStyle}
+                    >
                       {children}
                     </div>
                   </TransformComponent>

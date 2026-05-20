@@ -203,14 +203,15 @@ export async function renamePathInGithub(
           ref: branch || 'main'
         });
         
-        if (!Array.isArray(fileRes.data) && fileRes.data.content) {
+        const fileData = fileRes.data as any;
+        if (!Array.isArray(fileRes.data) && fileData.content) {
           // create new file
           await octokit.rest.repos.createOrUpdateFileContents({
             owner: repoOwner,
             repo: repoName,
             path: newActualPath,
             message: `Rename ${oldFilePath} to ${newFilePath}`,
-            content: fileRes.data.content, // already base64
+            content: fileData.content, // already base64
             branch: branch || 'main'
           });
           
@@ -220,7 +221,7 @@ export async function renamePathInGithub(
             repo: repoName,
             path: oldActualPath,
             message: `Delete old ${oldFilePath}`,
-            sha: fileRes.data.sha,
+            sha: fileData.sha,
             branch: branch || 'main'
           });
         }
@@ -241,14 +242,15 @@ export async function renamePathInGithub(
         ref: branch || 'main'
       });
       
-      if (!Array.isArray(fileRes.data) && fileRes.data.content) {
+      const fileData = fileRes.data as any;
+      if (!Array.isArray(fileRes.data) && fileData.content) {
         // create new file
         await octokit.rest.repos.createOrUpdateFileContents({
           owner: repoOwner,
           repo: repoName,
           path: newActualPath,
           message: `Rename ${oldPath} to ${newPath}`,
-          content: fileRes.data.content,
+          content: fileData.content,
           branch: branch || 'main'
         });
         
@@ -258,7 +260,7 @@ export async function renamePathInGithub(
           repo: repoName,
           path: oldActualPath,
           message: `Delete old ${oldPath}`,
-          sha: fileRes.data.sha,
+          sha: fileData.sha,
           branch: branch || 'main'
         });
       }
