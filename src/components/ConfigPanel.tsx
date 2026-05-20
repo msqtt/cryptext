@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppConfig } from '../hooks/useConfig';
-import { Save, Settings2, Github, Key, FileText, GitBranch, User, Monitor, Globe, Loader2 } from 'lucide-react';
+import { Save, Settings2, Github, Key, FileText, GitBranch, User, Monitor, Globe, Loader2, ChevronDown } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { i18n } from '../lib/i18n';
@@ -137,13 +137,14 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                 name="theme"
                 value={config.theme}
                 onChange={handleChange}
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none"
+                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 pl-9 pr-10 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none transition-colors"
               >
                 <option value="system">{t.autoDetect}</option>
                 <option value="light">{t.light}</option>
                 <option value="dark">{t.dark}</option>
               </select>
-              <Monitor className="w-4 h-4 absolute right-3 top-2.5 text-zinc-400 dark:text-gray-500 pointer-events-none" />
+              <Monitor className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
             </div>
           </div>
 
@@ -154,12 +155,13 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                 name="language"
                 value={config.language}
                 onChange={handleChange}
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none"
+                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 pl-9 pr-10 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none transition-colors"
               >
                 <option value="en">English</option>
                 <option value="zh">中文</option>
               </select>
-              <Globe className="w-4 h-4 absolute right-3 top-2.5 text-zinc-400 dark:text-gray-500 pointer-events-none" />
+              <Globe className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
+              <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
             </div>
           </div>
         </div>
@@ -195,14 +197,15 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                      value={config.repoUrl}
                      onChange={handleChange}
                      disabled={loadingRepos}
-                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none disabled:opacity-50"
+                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 pl-9 pr-10 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none disabled:opacity-50 transition-colors"
                    >
                      <option value="" disabled>Select a repository...</option>
                      {repos.map(repo => (
                        <option key={repo.id} value={repo.html_url}>{repo.full_name}</option>
                      ))}
                    </select>
-                   <Github className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
+                   <Github className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
+                   {!loadingRepos && <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />}
                    {loadingRepos && <Loader2 className="w-4 h-4 absolute right-3 top-3 animate-spin text-zinc-400" />}
                 </div>
               ) : (
@@ -232,7 +235,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                      value={config.branch}
                      onChange={handleChange}
                      disabled={loadingBranches}
-                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none disabled:opacity-50"
+                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 pl-9 pr-10 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none disabled:opacity-50 transition-colors"
                    >
                      {config.branch && !branches.some(b => b.name === config.branch) && (
                        <option value={config.branch}>{config.branch}</option> 
@@ -242,7 +245,8 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                        <option key={branch.name} value={branch.name}>{branch.name}</option>
                      ))}
                    </select>
-                   <GitBranch className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
+                   <GitBranch className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
+                   {!loadingBranches && <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />}
                    {loadingBranches && <Loader2 className="w-4 h-4 absolute right-3 top-3 animate-spin text-zinc-400" />}
                  </div>
               ) : (
