@@ -24,7 +24,7 @@ export const ZoomableView: React.FC<{ children: React.ReactNode }> = ({ children
             minScale={0.1}
             maxScale={8}
             centerOnInit
-            wheel={{ step: 0.1 }}
+            wheel={{ step: 0.05 }}
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
@@ -47,7 +47,9 @@ export const ZoomableView: React.FC<{ children: React.ReactNode }> = ({ children
                     wrapperStyle={{ width: '100%', height: '100%' }}
                     contentStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    {children}
+                    <div className="bg-white dark:bg-[#16191E] p-4 rounded-xl shadow-2xl">
+                      {children}
+                    </div>
                   </TransformComponent>
                 </div>
               </>

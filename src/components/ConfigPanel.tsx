@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { AppConfig } from '../hooks/useConfig';
 import { Save, Settings2, Github, Key, FileText, GitBranch, User, Monitor, Globe, Loader2, ChevronDown } from 'lucide-react';
 import { clsx, type ClassValue } from 'clsx';
@@ -9,6 +9,80 @@ import { parseRepoInfo } from '../lib/github';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+interface CustomSelectProps {
+  name: string;
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (e: any) => void;
+  icon?: React.ElementType;
+  disabled?: boolean;
+  placeholder?: string;
+  loading?: boolean;
+}
+
+function CustomSelect({ name, options, value, onChange, icon: Icon, disabled = false, placeholder = '', loading = false }: CustomSelectProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedOption = options.find(o => o.value === value) || (value ? { label: value, value: value } : null);
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "w-full flex items-center justify-between text-left bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#353A45] rounded-lg py-2 pl-9 pr-3 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all shadow-sm",
+          disabled ? "opacity-50 cursor-not-allowed" : "hover:border-zinc-300 dark:hover:border-[#4B5263] cursor-pointer"
+        )}
+      >
+        <span className="block truncate text-zinc-900 dark:text-[#E0E0E0]">
+           {selectedOption ? selectedOption.label : placeholder}
+        </span>
+        {loading ? <Loader2 className="w-4 h-4 text-zinc-400 animate-spin shrink-0" /> : <ChevronDown className="w-4 h-4 text-zinc-400 dark:text-gray-500 shrink-0 transition-transform duration-200" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} />}
+      </button>
+      {Icon && (
+        <span className="absolute left-3 top-2.5 text-zinc-400 dark:text-gray-500 pointer-events-none">
+          <Icon className="w-4 h-4" />
+        </span>
+      )}
+      {isOpen && !disabled && (
+        <div className="absolute z-[100] w-full mt-1 bg-white dark:bg-[#1F232B] border border-zinc-200 dark:border-[#353A45] rounded-lg shadow-xl max-h-60 overflow-y-auto py-1">
+          {options.length === 0 && (
+             <div className="py-2 px-3 text-sm text-zinc-500 dark:text-gray-400">No options available</div>
+          )}
+          {options.map((option) => (
+            <div
+              key={option.value}
+              className={cn(
+                "cursor-pointer select-none py-2 px-3 text-sm flex items-center transition-colors",
+                value === option.value ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 font-medium" : "text-zinc-700 dark:text-[#E0E0E0] hover:bg-zinc-100 dark:hover:bg-[#2D3139]"
+              )}
+              onClick={() => {
+                onChange({ target: { name, value: option.value } });
+                setIsOpen(false);
+              }}
+            >
+              <span className="block truncate w-full" title={option.label}>{option.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface ConfigPanelProps {
@@ -132,37 +206,31 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
 
           <div className="space-y-2">
             <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.theme}</label>
-            <div className="relative">
-              <select
-                name="theme"
-                value={config.theme}
-                onChange={handleChange}
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 pl-9 pr-10 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none transition-colors"
-              >
-                <option value="system">{t.autoDetect}</option>
-                <option value="light">{t.light}</option>
-                <option value="dark">{t.dark}</option>
-              </select>
-              <Monitor className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
-              <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
-            </div>
+            <CustomSelect
+              name="theme"
+              options={[
+                { label: t.autoDetect, value: 'system' },
+                { label: t.light, value: 'light' },
+                { label: t.dark, value: 'dark' },
+              ]}
+              value={config.theme || 'system'}
+              onChange={handleChange}
+              icon={Monitor}
+            />
           </div>
 
           <div className="space-y-2">
             <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.language}</label>
-            <div className="relative">
-              <select
-                name="language"
-                value={config.language}
-                onChange={handleChange}
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 pl-9 pr-10 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none transition-colors"
-              >
-                <option value="en">English</option>
-                <option value="zh">中文</option>
-              </select>
-              <Globe className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
-              <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
-            </div>
+            <CustomSelect
+              name="language"
+              options={[
+                { label: 'English', value: 'en' },
+                { label: '中文', value: 'zh' },
+              ]}
+              value={config.language || 'en'}
+              onChange={handleChange}
+              icon={Globe}
+            />
           </div>
         </div>
 
@@ -191,23 +259,16 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
             <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.repoUrl}</label>
             <div className="relative">
               {config.githubToken ? (
-                <div className="relative">
-                   <select
-                     name="repoUrl"
-                     value={config.repoUrl}
-                     onChange={handleChange}
-                     disabled={loadingRepos}
-                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 pl-9 pr-10 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none disabled:opacity-50 transition-colors"
-                   >
-                     <option value="" disabled>Select a repository...</option>
-                     {repos.map(repo => (
-                       <option key={repo.id} value={repo.html_url}>{repo.full_name}</option>
-                     ))}
-                   </select>
-                   <Github className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
-                   {!loadingRepos && <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />}
-                   {loadingRepos && <Loader2 className="w-4 h-4 absolute right-3 top-3 animate-spin text-zinc-400" />}
-                </div>
+                <CustomSelect
+                  name="repoUrl"
+                  options={repos.map(r => ({ label: r.full_name, value: r.html_url }))}
+                  value={config.repoUrl || ''}
+                  onChange={handleChange}
+                  icon={Github}
+                  disabled={loadingRepos}
+                  placeholder="Select a repository..."
+                  loading={loadingRepos}
+                />
               ) : (
                 <input
                   type="text"
@@ -229,26 +290,19 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
             <label className="text-sm text-zinc-600 dark:text-gray-400 block ml-1">{t.branch}</label>
              <div className="relative">
               {config.githubToken && config.repoUrl ? (
-                 <div className="relative">
-                   <select
-                     name="branch"
-                     value={config.branch}
-                     onChange={handleChange}
-                     disabled={loadingBranches}
-                     className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 pl-9 pr-10 text-base text-zinc-900 dark:text-[#E0E0E0] focus:outline-none focus:ring-1 focus:ring-indigo-500 appearance-none disabled:opacity-50 transition-colors"
-                   >
-                     {config.branch && !branches.some(b => b.name === config.branch) && (
-                       <option value={config.branch}>{config.branch}</option> 
-                     )}
-                     {!config.branch && <option value="" disabled>Select branch...</option>}
-                     {branches.map(branch => (
-                       <option key={branch.name} value={branch.name}>{branch.name}</option>
-                     ))}
-                   </select>
-                   <GitBranch className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />
-                   {!loadingBranches && <ChevronDown className="w-4 h-4 absolute right-3 top-3 text-zinc-400 dark:text-gray-500 pointer-events-none" />}
-                   {loadingBranches && <Loader2 className="w-4 h-4 absolute right-3 top-3 animate-spin text-zinc-400" />}
-                 </div>
+                <CustomSelect
+                  name="branch"
+                  options={[
+                    ...(config.branch && !branches.some(b => b.name === config.branch) ? [{ label: config.branch, value: config.branch }] : []),
+                    ...branches.map(b => ({ label: b.name, value: b.name }))
+                  ]}
+                  value={config.branch || ''}
+                  onChange={handleChange}
+                  icon={GitBranch}
+                  disabled={loadingBranches}
+                  placeholder="Select branch..."
+                  loading={loadingBranches}
+                />
               ) : (
                 <>
                   <input

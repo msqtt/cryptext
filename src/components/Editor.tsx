@@ -44,6 +44,12 @@ function emojiCompletion(context: CompletionContext) {
 
 const emojiExtension = autocompletion({ override: [emojiCompletion] });
 
+const removeOutline = EditorView.theme({
+  "&.cm-focused": {
+    outline: "none"
+  }
+});
+
 const triggerOnColonExtension = EditorView.updateListener.of((update) => {
   if (update.docChanged) {
     const head = update.state.selection.main.head;
@@ -95,7 +101,7 @@ export const Editor: React.FC<EditorProps> = ({ vimMode, vimKeyBindings, themeTy
   }, [vimMode, vimKeyBindings]);
 
   const extensions = useMemo(() => {
-    const exts = [markdown(), emojiExtension, triggerOnColonExtension];
+    const exts = [markdown(), emojiExtension, triggerOnColonExtension, removeOutline];
     if (vimMode) {
       exts.push(vim());
     }
