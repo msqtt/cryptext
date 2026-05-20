@@ -19,6 +19,8 @@ import { CSVViewer } from './components/CSVViewer';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
+const PreContext = React.createContext(false);
+
 export default function App() {
   const { config, updateConfig } = useConfig();
   const t = i18n[config.language || 'en'];
@@ -672,7 +674,13 @@ export default function App() {
                             <table {...props} className="w-full !my-0" />
                           </div>
                         ),
-                        pre: ({node, ...props}: any) => <pre data-line={node?.position?.start?.line} {...props} />,
+                        pre: ({node, children, ...props}: any) => (
+                          <PreContext.Provider value={true}>
+                            <pre data-line={node?.position?.start?.line} {...props}>
+                              {children}
+                            </pre>
+                          </PreContext.Provider>
+                        ),
                         img({node, ...props}: any) {
                           return (
                             <div data-line={node?.position?.start?.line}>
@@ -682,16 +690,17 @@ export default function App() {
                             </div>
                           );
                         },
-                        code({node, inline, className, children, ...props}: any) {
+                        code({node, className, children, ...props}: any) {
+                          const isBlock = React.useContext(PreContext);
                           const match = /language-(\w+)/.exec(className || '')
                           const lang = match ? match[1] : ''
                           
                           let rendered;
-                          if (!inline && lang === 'mermaid') {
+                          if (isBlock && lang === 'mermaid') {
                             rendered = <MermaidBlock chart={String(children).replace(/\n$/, '')} />
-                          } else if (!inline && (lang === 'plantuml' || lang === 'puml')) {
+                          } else if (isBlock && (lang === 'plantuml' || lang === 'puml')) {
                             rendered = <PlantUMLBlock code={String(children).replace(/\n$/, '')} />
-                          } else if (!inline && match) {
+                          } else if (isBlock && match) {
                             rendered = (
                               <SyntaxHighlighter
                                 style={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? vscDarkPlus as any : vs as any}
@@ -711,7 +720,7 @@ export default function App() {
                             )
                           }
 
-                          if (!inline) {
+                          if (isBlock) {
                             return <div data-line={node?.position?.start?.line} className="my-4 w-full">{rendered}</div>;
                           }
                           return rendered;
