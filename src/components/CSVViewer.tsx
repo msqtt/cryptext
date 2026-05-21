@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { CustomSelect } from './CustomSelect';
 import { 
   Search, 
   ChevronLeft, 
@@ -529,18 +530,17 @@ export const CSVViewer: React.FC<CSVViewerProps> = ({ value, onChange, theme }) 
       <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#12151B] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0 select-none">
         <div className="flex items-center gap-2">
           <span className="text-xs text-zinc-500 dark:text-gray-400">Rows per page:</span>
-          <select
+          <CustomSelect
+            name="pageSize"
             value={pageSize}
             onChange={(e) => {
               setPageSize(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="bg-zinc-50 dark:bg-[#161920] border border-zinc-200 dark:border-zinc-800 text-xs font-semibold rounded-md px-2 py-1 outline-none text-zinc-700 dark:text-zinc-300"
-          >
-            {[10, 25, 50, 100].map(size => (
-              <option key={size} value={size}>{size}</option>
-            ))}
-          </select>
+            options={[10, 25, 50, 100].map(size => ({ label: String(size), value: size }))}
+            className="w-20"
+            dropDirection="up"
+          />
           <span className="text-xs text-zinc-400 font-medium">
             Showing {preparedRows.length === 0 ? 0 : (currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, preparedRows.length)} of {preparedRows.length} rows
           </span>

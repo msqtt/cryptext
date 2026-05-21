@@ -7,6 +7,8 @@ import { i18n } from '../lib/i18n';
 import { Octokit } from 'octokit';
 import { parseRepoInfo } from '../lib/github';
 
+import { CustomSelect } from './CustomSelect';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -22,41 +24,8 @@ interface StyledSelectProps {
   loading?: boolean;
 }
 
-function StyledSelect({ name, value, onChange, options, icon: Icon, disabled = false, placeholder = '', loading = false }: StyledSelectProps) {
-  return (
-    <div className="relative w-full">
-      <select
-        name={name}
-        value={value}
-        onChange={onChange}
-        disabled={disabled || loading}
-        className={cn(
-          "w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-lg py-2.5 pl-9 pr-10 text-xs font-semibold text-zinc-900 dark:text-[#E0E0E0] outline-none transition-all shadow-sm cursor-pointer appearance-none",
-          "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10",
-          disabled ? "opacity-55 cursor-not-allowed bg-zinc-50 dark:bg-[#0F1115]" : "hover:border-zinc-300 dark:hover:border-[#3E4552]"
-        )}
-      >
-        {placeholder && <option value="" disabled>{placeholder}</option>}
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      {Icon && (
-        <span className="absolute left-3 top-3.5 text-zinc-400 dark:text-gray-500 pointer-events-none">
-          <Icon className="w-4 h-4" />
-        </span>
-      )}
-      <span className="absolute right-3 top-3.5 text-zinc-400 dark:text-gray-500 pointer-events-none">
-        {loading ? (
-          <Loader2 className="w-4 h-4 animate-spin" />
-        ) : (
-          <ChevronDown className="w-4 h-4" />
-        )}
-      </span>
-    </div>
-  );
+function StyledSelect(props: StyledSelectProps) {
+  return <CustomSelect {...props} />;
 }
 
 interface ConfigPanelProps {
@@ -72,10 +41,13 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [branches, setBranches] = useState<any[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
 
   useEffect(() => {
     if (config.githubToken) {
       fetchRepos();
+    } else {
+      setTokenError(null);
     }
   }, [config.githubToken]);
 
@@ -87,6 +59,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
 
   const fetchBranches = async () => {
     setLoadingBranches(true);
+    setTokenError(null);
     setBranches([]);
     try {
       const { owner, repo } = parseRepoInfo(config.repoUrl);
@@ -98,8 +71,11 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
         per_page: 100
       });
       setBranches(res.data);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to fetch branches', e);
+      if (e?.status === 401 || (e?.message && e.message.includes('Bad credentials'))) {
+        setTokenError('Bad credentials - Invalid or expired token.');
+      }
     } finally {
       setLoadingBranches(false);
     }
@@ -107,6 +83,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
 
   const fetchRepos = async () => {
     setLoadingRepos(true);
+    setTokenError(null);
     try {
       const octokit = new Octokit({ auth: config.githubToken });
       const res = await octokit.rest.repos.listForAuthenticatedUser({
@@ -114,8 +91,13 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
         per_page: 50
       });
       setRepos(res.data);
-    } catch (e) {
+    } catch (e: any) {
       console.error('Failed to fetch repos', e);
+      if (e?.status === 401 || (e?.message && e.message.includes('Bad credentials'))) {
+        setTokenError('Bad credentials - Invalid or expired token.');
+      } else {
+        setTokenError(e?.message || 'Failed to fetch repositories.');
+      }
     } finally {
       setLoadingRepos(false);
     }
@@ -254,10 +236,16 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
                 value={config.githubToken || ''}
                 onChange={handleChange}
                 placeholder="ghp_..."
-                className="w-full bg-white dark:bg-[#16191E] border border-zinc-200 dark:border-[#2D3139] rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono"
+                className={cn(
+                  "w-full bg-white dark:bg-[#16191E] border rounded-md py-2 px-3 pl-9 text-base text-zinc-900 dark:text-[#E0E0E0] placeholder:text-zinc-400 dark:placeholder:text-gray-600 focus:outline-none focus:ring-1 font-mono",
+                  tokenError ? "border-red-500 focus:ring-red-500" : "border-zinc-200 dark:border-[#2D3139] focus:ring-indigo-500"
+                )}
               />
               <Key className="w-4 h-4 absolute left-3 top-3 text-zinc-400 dark:text-gray-500" />
             </div>
+            {tokenError && (
+              <p className="text-xs text-red-500 dark:text-red-400 ml-1">{tokenError}</p>
+            )}
           </div>
 
           <div className="space-y-2">

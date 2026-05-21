@@ -85,7 +85,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
 
   useEffect(() => {
     loadTree();
-  }, [config.githubToken, config.repoUrl, config.branch]);
+  }, [config.githubToken, config.repoUrl, config.branch, config.encryptionKey]);
 
   const toggleFolder = (path: string) => {
     const next = new Set(expandedFolders);

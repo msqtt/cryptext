@@ -6,7 +6,7 @@ import { FileTree } from './components/FileTree';
 import { Editor } from './components/Editor';
 import { SearchPanel } from './components/SearchPanel';
 import { fetchFileFromGithub, saveFileToGithub } from './lib/github';
-import { encryptLine, decryptLine } from './lib/crypto';
+import { encryptLine, decryptLine, decryptFileName } from './lib/crypto';
 import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye } from 'lucide-react';
 import { i18n } from './lib/i18n';
 import Markdown from 'react-markdown';
@@ -20,6 +20,8 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus, vs } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const PreContext = React.createContext(false);
+const MemoizedMermaidBlock = React.memo(MermaidBlock);
+const MemoizedPlantUMLBlock = React.memo(PlantUMLBlock);
 
 export default function App() {
   const { config, updateConfig } = useConfig();
@@ -44,6 +46,78 @@ export default function App() {
 
   const lastLineRef = useRef<number>(-1);
   const lastRatioYRef = useRef<number>(-1);
+
+  const markdownComponents = React.useMemo(() => {
+    return {
+      h1: ({node, ...props}: any) => <h1 data-line={node?.position?.start?.line} {...props} />,
+      h2: ({node, ...props}: any) => <h2 data-line={node?.position?.start?.line} {...props} />,
+      h3: ({node, ...props}: any) => <h3 data-line={node?.position?.start?.line} {...props} />,
+      h4: ({node, ...props}: any) => <h4 data-line={node?.position?.start?.line} {...props} />,
+      h5: ({node, ...props}: any) => <h5 data-line={node?.position?.start?.line} {...props} />,
+      h6: ({node, ...props}: any) => <h6 data-line={node?.position?.start?.line} {...props} />,
+      p: ({node, ...props}: any) => <p data-line={node?.position?.start?.line} {...props} />,
+      ul: ({node, ...props}: any) => <ul data-line={node?.position?.start?.line} {...props} />,
+      ol: ({node, ...props}: any) => <ol data-line={node?.position?.start?.line} {...props} />,
+      li: ({node, ...props}: any) => <li data-line={node?.position?.start?.line} {...props} />,
+      blockquote: ({node, ...props}: any) => <blockquote data-line={node?.position?.start?.line} {...props} />,
+      table: ({node, ...props}: any) => (
+        <div data-line={node?.position?.start?.line} className="my-4 overflow-x-auto w-full border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50/30 dark:bg-zinc-950/20">
+          <table {...props} className="w-full !my-0" />
+        </div>
+      ),
+      pre: ({node, children, ...props}: any) => (
+        <PreContext.Provider value={true}>
+          <pre data-line={node?.position?.start?.line} {...props}>
+            {children}
+          </pre>
+        </PreContext.Provider>
+      ),
+      img({node, ...props}: any) {
+        return (
+          <div data-line={node?.position?.start?.line}>
+            <ZoomableView>
+              <img {...props} className="max-w-full rounded-md shadow-sm" />
+            </ZoomableView>
+          </div>
+        );
+      },
+      code({node, className, children, ...props}: any) {
+        const isBlock = React.useContext(PreContext);
+        const match = /language-(\w+)/.exec(className || '')
+        const lang = match ? match[1] : ''
+        
+        let rendered;
+        if (isBlock && lang === 'mermaid') {
+          rendered = <MemoizedMermaidBlock chart={String(children).replace(/\n$/, '')} />
+        } else if (isBlock && (lang === 'plantuml' || lang === 'puml')) {
+          rendered = <MemoizedPlantUMLBlock code={String(children).replace(/\n$/, '')} />
+        } else if (isBlock && match) {
+          rendered = (
+            <SyntaxHighlighter
+              style={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? vscDarkPlus as any : vs as any}
+              language={lang}
+              PreTag="div"
+              className="rounded-md border border-zinc-200 dark:border-zinc-800 !my-0 !bg-zinc-50 dark:!bg-[#111318]"
+              {...props}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          )
+        } else {
+          rendered = (
+            <code className={className} {...props}>
+              {children}
+            </code>
+          )
+        }
+
+        if (isBlock) {
+          return <div data-line={node?.position?.start?.line} className="my-4 w-full">{rendered}</div>;
+        }
+        return rendered;
+      }
+    };
+  }, [config.theme]);
 
   const handleCursorLineChange = (line: number, totalLines: number, ratioY: number = 0.3) => {
     if (viewMode === 'split' && previewContainerRef.current) {
@@ -164,9 +238,13 @@ export default function App() {
       
       // Only scroll if change is greater than 5 pixels to avoid jitter
       if (diff >= 5) {
+        // Use 'smooth' only for significant line jumps to avoid stack latency in the browser on nearby edits
+        const lineDifference = Math.abs(line - lastLineRef.current);
+        const scrollBehavior = (lineDifference > 2 || lastLineRef.current === -1) ? 'smooth' : 'auto';
+        
         container.scrollTo({
           top: adjustedTarget,
-          behavior: 'smooth'
+          behavior: scrollBehavior
         });
       }
     }
@@ -433,6 +511,20 @@ export default function App() {
     return () => clearTimeout(handler);
   }, [config.vimKeyBindings, config.githubToken, config.repoUrl, config.branch]);
 
+  // Decrypt current filePath when encryption key changes
+  useEffect(() => {
+    if (config.encryptionKey && config.filePath) {
+      try {
+        const decryptedPath = decryptFileName(config.filePath, config.encryptionKey);
+        if (decryptedPath !== config.filePath) {
+          updateConfig({ filePath: decryptedPath });
+        }
+      } catch (e) {
+        console.error('Failed to decrypt active filePath', e);
+      }
+    }
+  }, [config.encryptionKey]);
+
   // We should reload file whenever config.filePath changes
   useEffect(() => {
     if (config.filePath) {
@@ -657,75 +749,7 @@ export default function App() {
                       prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none`}>
                     <Markdown 
                       remarkPlugins={[remarkGfm]}
-                      components={{
-                        h1: ({node, ...props}: any) => <h1 data-line={node?.position?.start?.line} {...props} />,
-                        h2: ({node, ...props}: any) => <h2 data-line={node?.position?.start?.line} {...props} />,
-                        h3: ({node, ...props}: any) => <h3 data-line={node?.position?.start?.line} {...props} />,
-                        h4: ({node, ...props}: any) => <h4 data-line={node?.position?.start?.line} {...props} />,
-                        h5: ({node, ...props}: any) => <h5 data-line={node?.position?.start?.line} {...props} />,
-                        h6: ({node, ...props}: any) => <h6 data-line={node?.position?.start?.line} {...props} />,
-                        p: ({node, ...props}: any) => <p data-line={node?.position?.start?.line} {...props} />,
-                        ul: ({node, ...props}: any) => <ul data-line={node?.position?.start?.line} {...props} />,
-                        ol: ({node, ...props}: any) => <ol data-line={node?.position?.start?.line} {...props} />,
-                        li: ({node, ...props}: any) => <li data-line={node?.position?.start?.line} {...props} />,
-                        blockquote: ({node, ...props}: any) => <blockquote data-line={node?.position?.start?.line} {...props} />,
-                        table: ({node, ...props}: any) => (
-                          <div data-line={node?.position?.start?.line} className="my-4 overflow-x-auto w-full border border-zinc-200 dark:border-zinc-800 rounded-lg p-3 bg-zinc-50/30 dark:bg-zinc-950/20">
-                            <table {...props} className="w-full !my-0" />
-                          </div>
-                        ),
-                        pre: ({node, children, ...props}: any) => (
-                          <PreContext.Provider value={true}>
-                            <pre data-line={node?.position?.start?.line} {...props}>
-                              {children}
-                            </pre>
-                          </PreContext.Provider>
-                        ),
-                        img({node, ...props}: any) {
-                          return (
-                            <div data-line={node?.position?.start?.line}>
-                              <ZoomableView>
-                                <img {...props} className="max-w-full rounded-md shadow-sm" />
-                              </ZoomableView>
-                            </div>
-                          );
-                        },
-                        code({node, className, children, ...props}: any) {
-                          const isBlock = React.useContext(PreContext);
-                          const match = /language-(\w+)/.exec(className || '')
-                          const lang = match ? match[1] : ''
-                          
-                          let rendered;
-                          if (isBlock && lang === 'mermaid') {
-                            rendered = <MermaidBlock chart={String(children).replace(/\n$/, '')} />
-                          } else if (isBlock && (lang === 'plantuml' || lang === 'puml')) {
-                            rendered = <PlantUMLBlock code={String(children).replace(/\n$/, '')} />
-                          } else if (isBlock && match) {
-                            rendered = (
-                              <SyntaxHighlighter
-                                style={config.theme === 'dark' || (config.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches) ? vscDarkPlus as any : vs as any}
-                                language={lang}
-                                PreTag="div"
-                                className="rounded-md border border-zinc-200 dark:border-zinc-800 !my-0 !bg-zinc-50 dark:!bg-[#111318]"
-                                {...props}
-                              >
-                                {String(children).replace(/\n$/, '')}
-                              </SyntaxHighlighter>
-                            )
-                          } else {
-                            rendered = (
-                              <code className={className} {...props}>
-                                {children}
-                              </code>
-                            )
-                          }
-
-                          if (isBlock) {
-                            return <div data-line={node?.position?.start?.line} className="my-4 w-full">{rendered}</div>;
-                          }
-                          return rendered;
-                        }
-                      }}
+                      components={markdownComponents}
                     >
                       {deferredText || '*No content to preview*'}
                     </Markdown>
