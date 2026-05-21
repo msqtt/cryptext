@@ -7,7 +7,7 @@ import { Editor } from './components/Editor';
 import { SearchPanel } from './components/SearchPanel';
 import { fetchFileFromGithub, saveFileToGithub } from './lib/github';
 import { encryptLine, decryptLine, decryptFileName } from './lib/crypto';
-import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye } from 'lucide-react';
+import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye, EyeOff } from 'lucide-react';
 import { i18n } from './lib/i18n';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -41,6 +41,19 @@ export default function App() {
   const [viewMode, setViewMode] = useState<'editor' | 'split' | 'preview'>('editor');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const previewContainerRef = useRef<HTMLDivElement>(null);
+  const [isSecretUnlocked, setIsSecretUnlocked] = useState(false);
+
+  useEffect(() => {
+    setIsSecretUnlocked(false);
+  }, [config.filePath]);
+
+  const isSecretFile = config.filePath ? (
+    config.filePath.toLowerCase().split('/').includes('secret') ||
+    config.filePath.toLowerCase().includes('.secret') ||
+    config.filePath.toLowerCase().includes('_secret') ||
+    config.filePath.toLowerCase().includes('passwd') ||
+    config.filePath.toLowerCase().includes('password')
+  ) : false;
 
   const deferredText = useDeferredValue(text);
 
@@ -737,53 +750,77 @@ export default function App() {
 
         {/* Main Editor */}
         <main className="flex-1 flex bg-white dark:bg-[#0A0C0E] overflow-hidden relative">
-          {(viewMode === 'editor' || viewMode === 'split') && (
-            <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
-              <Editor
-                value={text}
-                onChange={handleTextChange}
-                className="w-full h-full text-lg [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
-                editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
-                vimMode={config.vimMode}
-                vimKeyBindings={config.vimKeyBindings}
-                themeType={config.theme}
-                onCursorLineChange={handleCursorLineChange}
-              />
+          
+          {/* Secret File Overlay */}
+          {isSecretFile && !isSecretUnlocked && (
+            <div className="absolute inset-0 z-10 backdrop-blur-xl bg-white/40 dark:bg-black/40 flex flex-col items-center justify-center">
+              <div className="bg-white dark:bg-[#16191E] p-6 rounded-xl shadow-2xl border border-zinc-200 dark:border-zinc-800 flex flex-col items-center gap-4 text-center max-w-sm mx-4">
+                <div className="w-12 h-12 rounded-full bg-indigo-50 dark:bg-indigo-500/20 flex items-center justify-center text-indigo-500 dark:text-indigo-400">
+                  <EyeOff className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-display font-semibold text-zinc-900 dark:text-white">Sensitive File</h3>
+                  <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">This file appears to contain sensitive information. Its content has been masked to prevent peeping.</p>
+                </div>
+                <button
+                  onClick={() => setIsSecretUnlocked(true)}
+                  className="w-full mt-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow font-medium transition-all active:scale-95 flex items-center justify-center gap-2"
+                >
+                  <Eye className="w-4 h-4" /> Unmask and Edit
+                </button>
+              </div>
             </div>
           )}
 
-          {((viewMode === 'split' || viewMode === 'preview') && (!isMobile || viewMode === 'preview')) && (
-            <div ref={previewContainerRef} className={`overflow-hidden h-full flex flex-col ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1'}`}>
-              {config.filePath && config.filePath.toLowerCase().endsWith('.csv') ? (
-                <CSVViewer
+          <div className={`flex flex-1 w-full h-full relative ${isSecretFile && !isSecretUnlocked ? 'filter blur-md select-none pointer-events-none' : ''}`}>
+            {(viewMode === 'editor' || viewMode === 'split') && (
+              <div className={`h-full overflow-hidden ${viewMode === 'split' ? 'flex-[0_0_50%] border-r border-zinc-200 dark:border-zinc-800' : 'flex-1'}`}>
+                <Editor
                   value={text}
                   onChange={handleTextChange}
-                  theme={config.theme}
+                  className="w-full h-full text-lg [&_.cm-editor]:h-full [&_.cm-editor]:w-full [&_.cm-scroller]:font-mono [&_.cm-content]:p-4 sm:p-6"
+                  editable={!((isGithubConfigured && !config.encryptionKey) || status === 'loading')}
+                  vimMode={config.vimMode}
+                  vimKeyBindings={config.vimKeyBindings}
+                  themeType={config.theme}
+                  onCursorLineChange={handleCursorLineChange}
                 />
-              ) : config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
-                <div className="p-4 sm:p-6 overflow-y-auto h-full">
-                  <div className={`prose prose-zinc prose-lg dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
-                      prose-headings:font-display prose-headings:font-semibold prose-a:text-indigo-500 
-                      prose-code:font-mono prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
-                      prose-code:before:content-none prose-code:after:content-none
-                      prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none`}>
-                    <Markdown 
-                      remarkPlugins={[remarkGfm]}
-                      components={markdownComponents}
-                    >
-                      {deferredText || '*No content to preview*'}
-                    </Markdown>
+              </div>
+            )}
+
+            {((viewMode === 'split' || viewMode === 'preview') && (!isMobile || viewMode === 'preview')) && (
+              <div ref={previewContainerRef} className={`overflow-hidden h-full flex flex-col ${viewMode === 'split' ? 'flex-[0_0_50%]' : 'flex-1'}`}>
+                {config.filePath && config.filePath.toLowerCase().endsWith('.csv') ? (
+                  <CSVViewer
+                    value={text}
+                    onChange={handleTextChange}
+                    theme={config.theme}
+                  />
+                ) : config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
+                  <div className="p-4 sm:p-6 overflow-y-auto h-full">
+                    <div className={`prose prose-zinc prose-lg dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
+                        prose-headings:font-display prose-headings:font-semibold prose-a:text-indigo-500 
+                        prose-code:font-mono prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
+                        prose-code:before:content-none prose-code:after:content-none
+                        prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none`}>
+                      <Markdown 
+                        remarkPlugins={[remarkGfm]}
+                        components={markdownComponents}
+                      >
+                        {deferredText || '*No content to preview*'}
+                      </Markdown>
+                    </div>
                   </div>
-                </div>
-              ) : (
-                <div className={`p-4 sm:p-6 overflow-y-auto h-full ${viewMode === 'preview' ? 'max-w-[1000px] mx-auto' : ''}`}>
-                  <pre className="font-mono text-base whitespace-pre-wrap break-words text-zinc-800 dark:text-zinc-200">
-                    {text || 'No content'}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
+                ) : (
+                  <div className={`p-4 sm:p-6 overflow-y-auto h-full ${viewMode === 'preview' ? 'max-w-[1000px] mx-auto' : ''}`}>
+                    <pre className="font-mono text-base whitespace-pre-wrap break-words text-zinc-800 dark:text-zinc-200">
+                      {text || 'No content'}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </main>
       </div>
 
