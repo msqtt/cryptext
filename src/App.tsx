@@ -55,6 +55,8 @@ export default function App() {
     config.filePath.toLowerCase().includes('password')
   ) : false;
 
+  const [treeRefreshKey, setTreeRefreshKey] = useState(0);
+
   const [stagedChanges, setStagedChanges] = useState<Record<string, { type: 'write'; content?: string; sha?: string } | { type: 'delete' }>>(() => {
     try {
       return JSON.parse(localStorage.getItem('stagedChanges') || '{}');
@@ -380,31 +382,46 @@ export default function App() {
   const handleStage = () => {
     if (!config.filePath) return;
     const isSpecialFile = config.filePath === '.vimrc';
-    let contentToSave = text;
-    
-    if (!isSpecialFile) {
-      const lines = text.split('\n');
-      const encryptedLines = lines.map(line => {
-        if (!line.trim()) return ''; 
-        try {
-          return encryptLine(line, config.encryptionKey);
-        } catch (e) {
-          console.error('Failed to encrypt line', line, e);
-          return line;
-        }
-      });
-      contentToSave = encryptedLines.join('\n');
-    }
     
     setStagedChanges(prev => ({
       ...prev,
-      [config.filePath!]: { type: 'write', content: contentToSave }
+      [config.filePath!]: { type: 'write', content: text }
     }));
     
     setOriginalText(text);
     if (isSpecialFile) {
       updateConfig({ vimKeyBindings: text });
     }
+  };
+
+  const handlePullAll = () => {
+    const hasLocalChanges = (text !== originalText && originalText !== '__LOADING__') || Object.keys(stagedChanges).length > 0;
+    
+    let currentLocalFiles: string[] = [];
+    try {
+      currentLocalFiles = JSON.parse(localStorage.getItem('cryptext_local_files') || '[]');
+    } catch {}
+    
+    if (hasLocalChanges || currentLocalFiles.length > 0) {
+      if (!window.confirm(t.pullConfirm)) {
+        return;
+      }
+    }
+    
+    // Clear all local staged changes
+    setStagedChanges({});
+    
+    // Clear all local file storage tracking
+    for (const file of currentLocalFiles) {
+      localStorage.removeItem('file:' + file);
+    }
+    localStorage.removeItem('cryptext_local_files');
+    
+    // Trigger tree reload
+    setTreeRefreshKey(k => k + 1);
+    
+    // Reload current file
+    handleLoad(true);
   };
 
   const handleCommitAll = async () => {
@@ -639,10 +656,10 @@ export default function App() {
           {isGithubConfigured && (
             <div className={`flex items-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-0.5 shadow-sm text-sm transition-all sm:ml-2 ${hasChanges ? 'ring-1 ring-indigo-500/50 dark:ring-indigo-500/40' : ''}`}>
               <button
-                onClick={() => handleLoad(true)}
+                onClick={() => handlePullAll()}
                 disabled={status === 'loading' || status === 'saving'}
                 className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-md text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors disabled:opacity-50 group"
-                title={t.fetchWarning + " (Pull)"}
+                title={t.pullOverwrite}
               >
                 <CloudDownload className="w-4 h-4" />
               </button>
@@ -745,6 +762,7 @@ export default function App() {
           h-full bg-inherit
         `}>
           <FileTree 
+            refreshKey={treeRefreshKey}
             config={config} 
             onSelectFile={(path) => {
               handleSelectFile(path);

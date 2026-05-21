@@ -1,5 +1,5 @@
 import { Octokit } from 'octokit';
-import { encryptFileName, decryptFileName } from './crypto';
+import { encryptFileName, decryptFileName, encryptLine } from './crypto';
 
 export interface GithubConfig {
   githubToken: string;
@@ -82,8 +82,13 @@ export async function saveFileToGithub(
 
   const octokit = new Octokit({ auth: githubToken });
 
-  // Convert content to Base64 (content is guaranteed ASCII because it's Base85 + \n)
-  const base64Content = btoa(content);
+  // Convert content to Base64 (supporting UTF-8 if it is not encrypted)
+  const utf8Bytes = new TextEncoder().encode(content);
+  let binary = '';
+  for (let i = 0; i < utf8Bytes.byteLength; i++) {
+    binary += String.fromCharCode(utf8Bytes[i]);
+  }
+  const base64Content = btoa(binary);
 
   const params: any = {
     owner: repoOwner,
@@ -129,6 +134,15 @@ export async function commitMultipleChanges(
   });
   const baseTreeSha = commitRes.data.tree.sha;
 
+  // Fetch base tree to verify if files to delete actually exist
+  const baseTreeRes = await octokit.rest.git.getTree({
+    owner: repoOwner,
+    repo: repoName,
+    tree_sha: baseTreeSha,
+    recursive: "1"
+  });
+  const existingPaths = new Set(baseTreeRes.data.tree.map((t: any) => t.path));
+
   // 3. Create blobs and build tree items
   const treeItems: any[] = [];
   const paths = Object.keys(changes);
@@ -146,17 +160,38 @@ export async function commitMultipleChanges(
     const actualPath = encryptionKey ? encryptFileName(path, encryptionKey) : path;
     
     if (change.type === 'delete') {
-      treeItems.push({
-        path: actualPath,
-        mode: '100644',
-        type: 'blob',
-        sha: null // setting sha to null deletes the file in the new tree
-      });
+      if (existingPaths.has(actualPath)) {
+        treeItems.push({
+          path: actualPath,
+          mode: '100644',
+          type: 'blob',
+          sha: null // setting sha to null deletes the file in the new tree
+        });
+      }
     } else {
       let finalSha = change.sha;
       if (!finalSha && change.content !== undefined) {
-        // Create blob (Base64)
-        const base64Content = btoa(change.content);
+        let contentToSave = change.content;
+        if (encryptionKey && path !== '.vimrc') {
+          const lines = contentToSave.split('\n');
+          contentToSave = lines.map(line => {
+            if (!line.trim()) return '';
+            try {
+              return encryptLine(line, encryptionKey);
+            } catch(e) {
+              return line;
+            }
+          }).join('\n');
+        }
+        
+        // Create blob (Base64) - properly encoding UTF-8 string to base64
+        const utf8Bytes = new TextEncoder().encode(contentToSave);
+        let binary = '';
+        for (let i = 0; i < utf8Bytes.byteLength; i++) {
+          binary += String.fromCharCode(utf8Bytes[i]);
+        }
+        const base64Content = btoa(binary);
+        
         const blobRes = await octokit.rest.git.createBlob({
           owner: repoOwner,
           repo: repoName,

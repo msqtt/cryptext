@@ -8,6 +8,7 @@ interface FileTreeProps {
   onSelectFile: (filePath: string, skipAutoSave?: boolean) => void;
   activeFile: string;
   onStageChange?: (changes: Record<string, any>) => void;
+  refreshKey?: number;
 }
 
 const getLocalFiles = (): string[] => {
@@ -34,7 +35,7 @@ const removeLocalFile = (path: string) => {
   localStorage.setItem('cryptext_local_files', JSON.stringify(Array.from(files)));
 };
 
-export function FileTree({ config, onSelectFile, activeFile, onStageChange }: FileTreeProps) {
+export function FileTree({ config, onSelectFile, activeFile, onStageChange, refreshKey }: FileTreeProps) {
   const [tree, setTree] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -90,7 +91,7 @@ export function FileTree({ config, onSelectFile, activeFile, onStageChange }: Fi
 
   useEffect(() => {
     loadTree();
-  }, [config.githubToken, config.repoUrl, config.branch, config.encryptionKey]);
+  }, [config.githubToken, config.repoUrl, config.branch, config.encryptionKey, refreshKey]);
 
   const toggleFolder = (path: string) => {
     const next = new Set(expandedFolders);

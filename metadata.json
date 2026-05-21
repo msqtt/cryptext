@@ -1,6 +1,8 @@
 {
-  "name": "",
-  "description": "",
+  "name": "CrypText - Secure GitHub Notes",
+  "description": "AES-encrypted markdown notes synchronized securely with a GitHub repository.",
   "requestFramePermissions": [],
-  "majorCapabilities": []
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
