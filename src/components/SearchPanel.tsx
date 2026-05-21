@@ -180,11 +180,11 @@ export function SearchPanel({ config, onClose, onSelectFile }: SearchPanelProps)
               onClose();
             }}
           >
-            <div className="flex items-center gap-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 mb-1">
-              <FileText className="w-4 h-4" />
-              {r.filePath} <span className="text-zinc-400 ml-1">:{r.line}</span>
+            <div className="flex items-center gap-2 text-xs font-semibold text-indigo-600 dark:text-indigo-400 border-b border-transparent mb-1">
+              <FileText className="w-3.5 h-3.5" />
+              {r.filePath} <span className="text-zinc-400 font-mono ml-1 text-[10px]">:{r.line}</span>
             </div>
-            <div className="text-base text-zinc-700 dark:text-zinc-300 font-mono truncate">
+            <div className="text-xs text-zinc-600 dark:text-zinc-300 font-mono line-clamp-2 leading-relaxed">
               {r.content}
             </div>
           </div>

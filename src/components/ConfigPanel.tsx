@@ -112,7 +112,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
   return (
     <div className="absolute inset-y-0 right-0 w-full sm:w-80 bg-zinc-50 dark:bg-[#0F1115] border-l border-zinc-200 dark:border-[#2D3139] shadow-2xl z-50 flex flex-col transform transition-transform duration-300 text-zinc-900 dark:text-[#E0E0E0]">
       <div className="flex items-center justify-between p-4 border-b border-zinc-200 dark:border-[#2D3139] bg-white dark:bg-[#16191E]">
-        <h2 className="font-semibold flex items-center gap-2">
+        <h2 className="font-display font-semibold flex items-center gap-2">
           <Settings2 className="w-5 h-5 text-indigo-500 dark:text-indigo-400" />
           {t.config}
         </h2>
@@ -130,7 +130,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
 
         {/* Global Settings */}
         <div className="space-y-4">
-          <h3 className="text-xs font-semibold text-zinc-500 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs font-display font-semibold text-zinc-500 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
             <Globe className="w-4 h-4" />
             General
           </h3>
@@ -222,7 +222,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
         </div>
 
         <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-[#2D3139]">
-          <h3 className="text-xs font-semibold text-zinc-500 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs font-display font-semibold text-zinc-500 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
             <Github className="w-4 h-4" />
             {t.githubConnection}
           </h3>
@@ -314,7 +314,7 @@ export function ConfigPanel({ config, updateConfig, isOpen, onClose }: ConfigPan
         </div>
 
         <div className="space-y-4 pt-4 border-t border-zinc-200 dark:border-[#2D3139]">
-          <h3 className="text-xs font-semibold text-zinc-500 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
+          <h3 className="text-xs font-display font-semibold text-zinc-500 dark:text-gray-500 uppercase tracking-wider flex items-center gap-2">
              <Key className="w-4 h-4" />
             {t.encryption}
           </h3>

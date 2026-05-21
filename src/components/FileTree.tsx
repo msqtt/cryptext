@@ -5,7 +5,7 @@ import { FolderOpen, FileText, ChevronRight, ChevronDown, Plus, RefreshCw, File,
 
 interface FileTreeProps {
   config: AppConfig;
-  onSelectFile: (filePath: string) => void;
+  onSelectFile: (filePath: string, skipAutoSave?: boolean) => void;
   activeFile: string;
 }
 
@@ -132,7 +132,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       try {
         await deletePathFromGithub(config, path, isDirectory);
         if (activeFile === path || activeFile.startsWith(path + '/')) {
-          onSelectFile(''); // clear active file
+          onSelectFile('', true); // clear active file, skip auto save
         }
       } catch (e: any) {
         setError('Failed to delete: ' + e.message);
@@ -140,7 +140,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       loadTree();
     } else {
        if (activeFile === path || activeFile.startsWith(path + '/')) {
-          onSelectFile(''); // clear active file
+          onSelectFile('', true); // clear active file, skip auto save
        }
        loadTree();
     }
@@ -232,13 +232,12 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       if (node.type === 'tree') {
         return (
           <div key={node.path}>
-            <div className={`w-full flex items-center justify-between py-1.5 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-base group`} style={{ paddingLeft: `${depth * 14 + 8}px` }}>
-              <button
-                onClick={() => toggleFolder(node.path)}
-                className="flex items-center gap-2 flex-1 truncate text-zinc-600 dark:text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-zinc-200"
+            <div className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-md transition-colors text-sm group cursor-pointer`} style={{ paddingLeft: `${depth * 12 + 8}px` }} onClick={() => toggleFolder(node.path)}>
+              <div
+                className="flex items-center gap-1.5 flex-1 truncate text-zinc-700 dark:text-zinc-300 font-medium"
               >
-                {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                <FolderOpen className="w-4 h-4 text-indigo-400" />
+                {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-zinc-400" /> : <ChevronRight className="w-3.5 h-3.5 text-zinc-400" />}
+                <FolderOpen className="w-4 h-4 text-indigo-500/80 dark:text-indigo-400 tracking-tight" />
                 
                 {isRenamingThis ? (
                   <input 
@@ -257,7 +256,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
                 ) : (
                   <span className="truncate w-full text-left">{node.name}</span>
                 )}
-              </button>
+              </div>
 
               {!isRenamingThis && (
                 <div className="hidden group-hover:flex items-center space-x-1 pl-1">
@@ -282,15 +281,15 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       return (
         <div 
           key={node.path}
-          className={`w-full flex items-center justify-between py-1.5 px-2 hover:bg-zinc-200 dark:hover:bg-zinc-800 rounded transition-colors text-base group ${isActive ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'}`}
-          style={{ paddingLeft: `${depth * 14 + 28}px` }}
+          className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-md transition-colors text-sm group cursor-pointer ${isActive ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'}`}
+          style={{ paddingLeft: `${depth * 12 + 28}px` }}
+          onClick={() => onSelectFile(node.path)}
         >
-          <button
-            onClick={() => onSelectFile(node.path)}
-            className={`flex items-center gap-2 flex-1 truncate text-left hover:text-zinc-900 dark:hover:text-zinc-200`}
+          <div
+            className={`flex items-center gap-1.5 flex-1 truncate text-left hover:text-zinc-900 dark:hover:text-zinc-200`}
             title={node.path}
           >
-            <FileText className="w-4 h-4 shrink-0 opacity-70" />
+            <FileText className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'opacity-100 text-indigo-500' : 'opacity-70'}`} />
             {isRenamingThis ? (
                <input 
                  type="text" 
@@ -308,7 +307,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
             ) : (
                <span className="truncate">{node.name}</span>
             )}
-          </button>
+          </div>
           
           {!isRenamingThis && (
             <div className="hidden group-hover:flex items-center space-x-1 pl-1">

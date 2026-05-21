@@ -446,7 +446,14 @@ export default function App() {
     setShowEmojiPicker(false);
   };
 
-  const handleSelectFile = (newFilePath: string) => {
+  const handleSelectFile = async (newFilePath: string, skipAutoSave: boolean = false) => {
+    if (newFilePath === config.filePath) return;
+    
+    // Auto sync on switch if there are changes
+    if (!skipAutoSave && (text !== originalText && originalText !== '__LOADING__') && config.githubToken && config.repoUrl) {
+      await handleSave(false);
+    }
+    
     updateConfig({ filePath: newFilePath });
   };
 
@@ -542,6 +549,20 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Cmd+S or Ctrl+S
+      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+        e.preventDefault();
+        if (config.githubToken && config.repoUrl) {
+          handleSave(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [config.githubToken, config.repoUrl, config.encryptionKey, config.filePath, config.branch, text, originalText, status]);
+
   const hasChanges = text !== originalText && originalText !== '__LOADING__';
 
   return (
@@ -558,10 +579,10 @@ export default function App() {
             {isExplorerOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeft className="w-5 h-5" />}
           </button>
           <div className="w-8 h-8 rounded bg-indigo-600 flex items-center justify-center shrink-0 hidden sm:flex">
-            <span className="font-bold text-white">C</span>
+            <span className="font-bold text-white font-display text-lg">C</span>
           </div>
           <div className="truncate">
-            <h1 className="text-base sm:text-xl font-semibold tracking-tight text-zinc-900 dark:text-[#E0E0E0] leading-tight truncate">
+            <h1 className="text-base sm:text-xl font-display font-semibold tracking-tight text-zinc-900 dark:text-[#E0E0E0] leading-tight truncate">
               {t.title}
             </h1>
           </div>
@@ -588,31 +609,30 @@ export default function App() {
             </div>
           )}
 
-          {isGithubConfigured && hasChanges && (
-            <div className="flex bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-md p-1 shadow-inner text-sm">
+          {isGithubConfigured && (
+            <div className={`flex items-center bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg p-0.5 shadow-sm text-sm transition-all sm:ml-2 ${hasChanges ? 'ring-1 ring-indigo-500/50 dark:ring-indigo-500/40' : ''}`}>
               <button
                 onClick={() => handleLoad(true)}
                 disabled={status === 'loading' || status === 'saving'}
-                className="flex items-center gap-2 px-3 py-1.5 font-medium rounded text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                title={t.fetchWarning}
+                className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-md text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50 transition-colors disabled:opacity-50 group"
+                title={t.fetchWarning + " (Pull)"}
               >
                 <CloudDownload className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.pull}</span>
               </button>
-              <div className="w-px bg-zinc-200 dark:bg-zinc-800 mx-1" />
+              <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
               <button
                 onClick={() => handleSave(false)}
                 disabled={status === 'loading' || status === 'saving'}
-                className="flex items-center gap-2 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded border border-indigo-700 transition-colors disabled:opacity-50 font-medium"
-                title={t.push}
+                className={`flex items-center justify-center gap-1.5 p-1.5 sm:px-3 rounded-md font-medium transition-all disabled:opacity-50 ${hasChanges ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
+                title="Save (Cmd+S)"
               >
                 <CloudUpload className="w-4 h-4" />
-                <span className="hidden sm:inline">{t.push}</span>
+                {hasChanges && <span className="hidden sm:inline text-xs mt-0.5 px-0.5 leading-none">{t.push}</span>}
               </button>
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 ml-1 sm:ml-4">
             <button
               onClick={() => setIsSearchOpen(true)}
               className="p-2 text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-gray-200 bg-zinc-50 dark:bg-zinc-900 hover:bg-zinc-200 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800 rounded-md transition-colors"
@@ -641,29 +661,29 @@ export default function App() {
       {/* Toolbar (Hidden on Mobile) */}
       {!isMobile && (
         <div className="h-12 border-b border-zinc-200 dark:border-[#2D3139] flex items-center justify-between px-4 sm:px-6 bg-white dark:bg-[#16191E] shrink-0">
-          <div className="flex space-x-4 sm:space-x-6 text-sm sm:text-base h-full">
+          <div className="flex space-x-4 sm:space-x-6 text-sm h-full font-semibold">
             <button 
               onClick={() => setViewMode('editor')}
-              className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'editor' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+              className={`flex items-center gap-2 h-full border-b-[3px] transition-colors ${viewMode === 'editor' ? 'border-indigo-500 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
-              <Type className="w-4 h-4" />
+              <Type className={`w-4 h-4 ${viewMode === 'editor' ? 'text-indigo-500' : ''}`} />
               <span className={isMobile ? 'hidden' : 'inline'}>{t.editor}</span>
               {isMobile && <span>Edit</span>}
             </button>
             {(!isMobile) && (
               <button 
                 onClick={() => setViewMode('split')}
-                className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'split' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+                className={`flex items-center gap-2 h-full border-b-[3px] transition-colors ${viewMode === 'split' ? 'border-indigo-500 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
               >
-                <Columns className="w-4 h-4" />
+                <Columns className={`w-4 h-4 ${viewMode === 'split' ? 'text-indigo-500' : ''}`} />
                 {t.split || 'Split'}
               </button>
             )}
             <button 
               onClick={() => setViewMode('preview')}
-              className={`flex items-center gap-2 h-full border-b-2 transition-colors ${viewMode === 'preview' ? 'border-indigo-500 font-medium text-indigo-600 dark:text-indigo-400' : 'border-transparent text-zinc-500 dark:text-gray-500 hover:text-zinc-700 dark:hover:text-gray-300'}`}
+              className={`flex items-center gap-2 h-full border-b-[3px] transition-colors ${viewMode === 'preview' ? 'border-indigo-500 text-zinc-900 dark:text-zinc-100' : 'border-transparent text-zinc-400 dark:text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'}`}
             >
-              <Eye className="w-4 h-4" />
+              <Eye className={`w-4 h-4 ${viewMode === 'preview' ? 'text-indigo-500' : ''}`} />
               <span className={isMobile ? 'hidden' : 'inline'}>{t.preview}</span>
               {isMobile && <span>View</span>}
             </button>
@@ -743,8 +763,8 @@ export default function App() {
               ) : config.filePath && (config.filePath.toLowerCase().endsWith('.md') || config.filePath.toLowerCase().endsWith('.mdx')) ? (
                 <div className="p-4 sm:p-6 overflow-y-auto h-full">
                   <div className={`prose prose-zinc prose-lg dark:prose-invert ${viewMode === 'split' ? 'max-w-none' : 'max-w-[800px] mx-auto'} 
-                      prose-headings:font-semibold prose-a:text-indigo-500 
-                      prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
+                      prose-headings:font-display prose-headings:font-semibold prose-a:text-indigo-500 
+                      prose-code:font-mono prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded-md prose-code:bg-zinc-100 dark:prose-code:bg-zinc-800/50 
                       prose-code:before:content-none prose-code:after:content-none
                       prose-pre:p-0 prose-pre:bg-transparent dark:prose-pre:bg-transparent prose-pre:border-none`}>
                     <Markdown 
