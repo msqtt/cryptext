@@ -42,6 +42,10 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
   const [newFileType, setNewFileType] = useState<'file' | 'folder'>('file');
   const [newFilePath, setNewFilePath] = useState('');
 
+  // Drag and drop state
+  const [draggedItem, setDraggedItem] = useState<{ path: string, isDirectory: boolean } | null>(null);
+  const [dropTarget, setDropTarget] = useState<string | null>(null);
+
   // Rename state
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
@@ -152,6 +156,42 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
     setRenameValue(parts[parts.length - 1]);
   };
 
+  const moveItem = async (sourcePath: string, newPath: string, isDirectory: boolean) => {
+    if (sourcePath === newPath) return;
+    setLoading(true);
+    try {
+      const isLocalOnly = !tree.some(n => (n.path === sourcePath || n.path.startsWith(sourcePath + '/')) && !getLocalFiles().includes(n.path));
+      
+      if (!isLocalOnly && config.githubToken && config.repoUrl) {
+        await renamePathInGithub(config, sourcePath, newPath, isDirectory);
+      }
+      
+      // Update local storage
+      const localFiles = getLocalFiles();
+      for (const f of localFiles) {
+        if (f === sourcePath || f.startsWith(sourcePath + '/')) {
+          const destFile = f === sourcePath ? newPath : newPath + f.slice(sourcePath.length);
+          const content = localStorage.getItem('file:' + f);
+          if (content !== null) {
+            localStorage.setItem('file:' + destFile, content);
+            localStorage.removeItem('file:' + f);
+          }
+          addLocalFile(destFile);
+        }
+      }
+      removeLocalFile(sourcePath);
+      
+      if (activeFile === sourcePath || activeFile.startsWith(sourcePath + '/')) {
+         const newActiveFile = activeFile === sourcePath ? newPath : newPath + activeFile.slice(sourcePath.length);
+         onSelectFile(newActiveFile); 
+      }
+      await loadTree();
+    } catch(e: any) {
+      setError('Failed to move: ' + e.message);
+    }
+    setLoading(false);
+  };
+
   const submitRename = async (path: string, isDirectory: boolean) => {
     if (!renameValue || renameValue.trim() === '') {
       setRenamingPath(null);
@@ -194,6 +234,65 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
     setRenamingPath(null);
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, path: string, isDirectory: boolean) => {
+    e.stopPropagation();
+    e.dataTransfer.setData('text/plain', path);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedItem({ path, isDirectory });
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDragEnter = (e: React.DragEvent, path: string, isDirectory: boolean) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isDirectory) {
+      setDropTarget(path);
+    } else {
+      const parts = path.split('/');
+      parts.pop();
+      setDropTarget(parts.length > 0 ? parts.join('/') : '');
+    }
+  };
+
+  const handleRootDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDropTarget('');
+  };
+
+  const handleDragEnd = () => {
+    setDraggedItem(null);
+    setDropTarget(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, overrideTarget?: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const targetFolder = overrideTarget !== undefined ? overrideTarget : dropTarget;
+    setDropTarget(null);
+
+    if (!draggedItem) return;
+    
+    const { path: sourcePath, isDirectory } = draggedItem;
+    const itemName = sourcePath.split('/').pop() || '';
+    const newPath = targetFolder ? `${targetFolder}/${itemName}` : itemName;
+    
+    if (sourcePath === newPath || newPath.startsWith(sourcePath + '/')) {
+      handleDragEnd();
+      return;
+    }
+    
+    handleDragEnd();
+    await moveItem(sourcePath, newPath, isDirectory);
+  };
+
   // Build a nested structure
   const buildNestedTree = (flatTree: any[]) => {
     const root: any = { children: {} };
@@ -230,9 +329,17 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       const isRenamingThis = renamingPath === node.path;
       
       if (node.type === 'tree') {
+        const isDropTarget = dropTarget === node.path;
         return (
           <div key={node.path}>
-            <div className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-md transition-colors text-sm group cursor-pointer`} style={{ paddingLeft: `${depth * 12 + 8}px` }} onClick={() => toggleFolder(node.path)}>
+            <div 
+              draggable
+              onDragStart={(e) => handleDragStart(e, node.path, true)}
+              onDragOver={handleDragOver}
+              onDragEnter={(e) => handleDragEnter(e, node.path, true)}
+              onDrop={(e) => handleDrop(e, node.path)}
+              onDragEnd={handleDragEnd}
+              className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-md transition-colors text-sm group cursor-pointer ${isDropTarget ? 'ring-2 ring-indigo-500 bg-indigo-50 dark:bg-indigo-500/20' : ''}`} style={{ paddingLeft: `${depth * 12 + 8}px` }} onClick={() => toggleFolder(node.path)}>
               <div
                 className="flex items-center gap-1.5 flex-1 truncate text-zinc-700 dark:text-zinc-300 font-medium"
               >
@@ -278,10 +385,18 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
 
       if (node.type !== 'tree' && node.name === '.keep') return null;
 
+      const isDropTarget = dropTarget === (node.path.includes('/') ? node.path.split('/').slice(0, -1).join('/') : '');
+
       return (
         <div 
           key={node.path}
-          className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-md transition-colors text-sm group cursor-pointer ${isActive ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'}`}
+          draggable
+          onDragStart={(e) => handleDragStart(e, node.path, false)}
+          onDragOver={handleDragOver}
+          onDragEnter={(e) => handleDragEnter(e, node.path, false)}
+          onDrop={(e) => handleDrop(e, node.path.includes('/') ? node.path.split('/').slice(0, -1).join('/') : '')}
+          onDragEnd={handleDragEnd}
+          className={`w-full flex items-center justify-between py-1 px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/80 rounded-md transition-colors text-sm group cursor-pointer ${isActive ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300 font-medium' : 'text-zinc-600 dark:text-zinc-400'} ${isDropTarget ? 'ring-inset border-indigo-500/50' : ''}`}
           style={{ paddingLeft: `${depth * 12 + 28}px` }}
           onClick={() => onSelectFile(node.path)}
         >
@@ -363,7 +478,12 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
         </div>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-2">
+      <div 
+        className={`flex-1 overflow-y-auto p-2 ${dropTarget === '' ? 'bg-indigo-50/50 dark:bg-indigo-500/5' : ''}`}
+        onDragOver={handleDragOver}
+        onDragEnter={handleRootDragEnter}
+        onDrop={(e) => handleDrop(e, '')}
+      >
         {showNewFileInput && (
           <form onSubmit={handleCreateFile} className="mb-2 px-1">
             <input
