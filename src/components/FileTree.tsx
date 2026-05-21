@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AppConfig } from '../hooks/useConfig';
-import { getRepoTree, renamePathInGithub, deletePathFromGithub } from '../lib/github';
+import { getRepoTree } from '../lib/github';
 import { FolderOpen, FileText, ChevronRight, ChevronDown, Plus, RefreshCw, File, Edit2, Trash2, Check, X } from 'lucide-react';
 
 interface FileTreeProps {
