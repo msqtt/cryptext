@@ -5,7 +5,7 @@ import { HistoryPanel } from './components/HistoryPanel';
 import { FileTree } from './components/FileTree';
 import { Editor } from './components/Editor';
 import { SearchPanel } from './components/SearchPanel';
-import { fetchFileFromGithub, saveFileToGithub } from './lib/github';
+import { fetchFileFromGithub, saveFileToGithub, commitMultipleChanges } from './lib/github';
 import { encryptLine, decryptLine, decryptFileName } from './lib/crypto';
 import { Settings, CloudDownload, CloudUpload, RefreshCw, AlertCircle, CheckCircle2, History, Type, Columns, Smile, PanelLeftClose, PanelLeft, Search, Eye, EyeOff } from 'lucide-react';
 import { i18n } from './lib/i18n';
@@ -54,6 +54,18 @@ export default function App() {
     config.filePath.toLowerCase().includes('passwd') ||
     config.filePath.toLowerCase().includes('password')
   ) : false;
+
+  const [stagedChanges, setStagedChanges] = useState<Record<string, { type: 'write'; content?: string; sha?: string } | { type: 'delete' }>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('stagedChanges') || '{}');
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('stagedChanges', JSON.stringify(stagedChanges));
+  }, [stagedChanges]);
 
   const deferredText = useDeferredValue(text);
 
@@ -365,7 +377,37 @@ export default function App() {
     }
   };
 
-  const handleSave = async (forcePush: boolean = false) => {
+  const handleStage = () => {
+    if (!config.filePath) return;
+    const isSpecialFile = config.filePath === '.vimrc';
+    let contentToSave = text;
+    
+    if (!isSpecialFile) {
+      const lines = text.split('\n');
+      const encryptedLines = lines.map(line => {
+        if (!line.trim()) return ''; 
+        try {
+          return encryptLine(line, config.encryptionKey);
+        } catch (e) {
+          console.error('Failed to encrypt line', line, e);
+          return line;
+        }
+      });
+      contentToSave = encryptedLines.join('\n');
+    }
+    
+    setStagedChanges(prev => ({
+      ...prev,
+      [config.filePath!]: { type: 'write', content: contentToSave }
+    }));
+    
+    setOriginalText(text);
+    if (isSpecialFile) {
+      updateConfig({ vimKeyBindings: text });
+    }
+  };
+
+  const handleCommitAll = async () => {
     if (!config.githubToken || !config.repoUrl) {
       setErrorMessage(t.errorConfigGithub);
       setStatus('error');
@@ -373,43 +415,15 @@ export default function App() {
       return;
     }
 
-    const isSpecialFile = config.filePath === '.vimrc';
-
-    if (!config.encryptionKey && !isSpecialFile) {
-      setErrorMessage(t.errorConfigKey);
-      setStatus('error');
-      setIsConfigOpen(true);
-      return;
-    }
+    const keys = Object.keys(stagedChanges);
+    if (keys.length === 0) return;
 
     try {
       setStatus('saving');
       
-      let contentToSave = text;
+      await commitMultipleChanges(config, stagedChanges);
       
-      if (!isSpecialFile) {
-        const lines = text.split('\n');
-        const encryptedLines = lines.map(line => {
-          if (!line.trim()) return ''; 
-          try {
-            return encryptLine(line, config.encryptionKey);
-          } catch (e) {
-            console.error('Failed to encrypt line', line, e);
-            return line;
-          }
-        });
-        contentToSave = encryptedLines.join('\n');
-      }
-      
-      const newSha = await saveFileToGithub(config, contentToSave, fileSha);
-      setFileSha(newSha);
-      setOriginalText(text);
-      
-      // If we just saved .vimrc in the editor, optionally update the main config too
-      if (isSpecialFile) {
-        updateConfig({ vimKeyBindings: text });
-      }
-      
+      setStagedChanges({});
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
     } catch (e: any) {
@@ -462,9 +476,9 @@ export default function App() {
   const handleSelectFile = async (newFilePath: string, skipAutoSave: boolean = false) => {
     if (newFilePath === config.filePath) return;
     
-    // Auto sync on switch if there are changes
+    // Auto stage on switch if there are changes
     if (!skipAutoSave && (text !== originalText && originalText !== '__LOADING__') && config.githubToken && config.repoUrl) {
-      await handleSave(false);
+      handleStage();
     }
     
     updateConfig({ filePath: newFilePath });
@@ -568,7 +582,7 @@ export default function App() {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
         if (config.githubToken && config.repoUrl) {
-          handleSave(false);
+          handleStage();
         }
       }
     };
@@ -576,7 +590,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [config.githubToken, config.repoUrl, config.encryptionKey, config.filePath, config.branch, text, originalText, status]);
 
-  const hasChanges = text !== originalText && originalText !== '__LOADING__';
+  const hasChanges = (text !== originalText && originalText !== '__LOADING__') || Object.keys(stagedChanges).length > 0;
 
   return (
     <div className="w-full h-full bg-zinc-50 dark:bg-[#0F1115] text-zinc-900 dark:text-[#E0E0E0] font-sans flex flex-col overflow-hidden selection:bg-indigo-200 dark:selection:bg-indigo-500/40">
@@ -634,13 +648,13 @@ export default function App() {
               </button>
               <div className="w-px h-4 bg-zinc-200 dark:bg-zinc-800 mx-0.5" />
               <button
-                onClick={() => handleSave(false)}
+                onClick={() => handleCommitAll()}
                 disabled={status === 'loading' || status === 'saving'}
                 className={`flex items-center justify-center gap-1.5 p-1.5 sm:px-3 rounded-md font-medium transition-all disabled:opacity-50 ${hasChanges ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-200/50 dark:hover:bg-zinc-800/50'}`}
-                title="Save (Cmd+S)"
+                title="Commit All (Cmd+S to stage editor first)"
               >
                 <CloudUpload className="w-4 h-4" />
-                {hasChanges && <span className="hidden sm:inline text-xs mt-0.5 px-0.5 leading-none">{t.push}</span>}
+                {hasChanges && <span className="hidden sm:inline text-xs mt-0.5 px-0.5 leading-none">Commit ({Object.keys(stagedChanges).length})</span>}
               </button>
             </div>
           )}
@@ -737,6 +751,9 @@ export default function App() {
               if (isMobile) setIsExplorerOpen(false);
             }} 
             activeFile={config.filePath} 
+            onStageChange={(changes) => {
+               setStagedChanges(prev => ({ ...prev, ...changes }));
+            }}
           />
         </div>
 

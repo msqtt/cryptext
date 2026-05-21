@@ -103,6 +103,106 @@ export async function saveFileToGithub(
   return response.data.content!.sha;
 }
 
+export async function commitMultipleChanges(
+  config: GithubConfig,
+  changes: Record<string, { type: 'write'; content?: string; sha?: string } | { type: 'delete' }>
+): Promise<void> {
+  const { githubToken, repoUrl, branch, encryptionKey } = config;
+  const { owner: repoOwner, repo: repoName } = parseRepoInfo(repoUrl);
+  if (!githubToken || !repoOwner || !repoName) throw new Error("Missing GitHub configuration");
+
+  const octokit = new Octokit({ auth: githubToken });
+
+  // 1. Get current commit
+  const refRes = await octokit.rest.git.getRef({
+    owner: repoOwner,
+    repo: repoName,
+    ref: `heads/${branch || 'main'}`
+  });
+  const currentCommitSha = refRes.data.object.sha;
+
+  // 2. Get current commit details
+  const commitRes = await octokit.rest.git.getCommit({
+    owner: repoOwner,
+    repo: repoName,
+    commit_sha: currentCommitSha
+  });
+  const baseTreeSha = commitRes.data.tree.sha;
+
+  // 3. Create blobs and build tree items
+  const treeItems: any[] = [];
+  const paths = Object.keys(changes);
+  let actionStr = "";
+  
+  if (paths.length === 1) {
+    const p = paths[0];
+    const c = changes[p];
+    actionStr = `${c.type === 'write' ? 'Update' : 'Delete'} ${p}`;
+  } else {
+    actionStr = `Update ${paths.length} files`;
+  }
+
+  for (const [path, change] of Object.entries(changes)) {
+    const actualPath = encryptionKey ? encryptFileName(path, encryptionKey) : path;
+    
+    if (change.type === 'delete') {
+      treeItems.push({
+        path: actualPath,
+        mode: '100644',
+        type: 'blob',
+        sha: null // setting sha to null deletes the file in the new tree
+      });
+    } else {
+      let finalSha = change.sha;
+      if (!finalSha && change.content !== undefined) {
+        // Create blob (Base64)
+        const base64Content = btoa(change.content);
+        const blobRes = await octokit.rest.git.createBlob({
+          owner: repoOwner,
+          repo: repoName,
+          content: base64Content,
+          encoding: 'base64'
+        });
+        finalSha = blobRes.data.sha;
+      }
+      
+      if (finalSha) {
+        treeItems.push({
+          path: actualPath,
+          mode: '100644',
+          type: 'blob',
+          sha: finalSha
+        });
+      }
+    }
+  }
+
+  // 4. Create new tree
+  const treeRes = await octokit.rest.git.createTree({
+    owner: repoOwner,
+    repo: repoName,
+    base_tree: baseTreeSha,
+    tree: treeItems
+  });
+
+  // 5. Create new commit
+  const newCommitRes = await octokit.rest.git.createCommit({
+    owner: repoOwner,
+    repo: repoName,
+    message: actionStr,
+    tree: treeRes.data.sha,
+    parents: [currentCommitSha]
+  });
+
+  // 6. Update ref
+  await octokit.rest.git.updateRef({
+    owner: repoOwner,
+    repo: repoName,
+    ref: `heads/${branch || 'main'}`,
+    sha: newCommitRes.data.sha
+  });
+}
+
 export async function deletePathFromGithub(
   config: GithubConfig,
   pathToDelete: string,

@@ -7,6 +7,7 @@ interface FileTreeProps {
   config: AppConfig;
   onSelectFile: (filePath: string, skipAutoSave?: boolean) => void;
   activeFile: string;
+  onStageChange?: (changes: Record<string, any>) => void;
 }
 
 const getLocalFiles = (): string[] => {
@@ -33,7 +34,7 @@ const removeLocalFile = (path: string) => {
   localStorage.setItem('cryptext_local_files', JSON.stringify(Array.from(files)));
 };
 
-export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
+export function FileTree({ config, onSelectFile, activeFile, onStageChange }: FileTreeProps) {
   const [tree, setTree] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -115,38 +116,48 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
       path += '.keep'; // Create a dummy file to keep the folder
     }
     addLocalFile(path);
+    localStorage.setItem('file:' + path, '');
+    onStageChange?.({ [path]: { type: 'write', content: '' } });
     if (newFileType === 'file') {
       onSelectFile(path);
     }
     setShowNewFileInput(false);
     setNewFilePath('');
-    loadTree();
+    
+    // Update local tree without fetching from github
+    setTree(prev => {
+      const map = new Map<string, any>();
+      prev.forEach(i => map.set(i.path, i));
+      map.set(path, { path, type: 'blob' });
+      return Array.from(map.values());
+    });
   };
 
   const handleDelete = async (path: string, isDirectory: boolean) => {
     if (!confirm(`Are you sure you want to delete ${isDirectory ? 'folder' : 'file'}: ${path}?`)) return;
     
-    const isLocalOnly = !tree.some(n => (n.path === path || n.path.startsWith(path + '/')) && !getLocalFiles().includes(n.path));
-    
     removeLocalFile(path);
     localStorage.removeItem('file:' + path);
+    const changes: any = {};
     
-    if (!isLocalOnly && config.githubToken && config.repoUrl) {
-      setLoading(true);
-      try {
-        await deletePathFromGithub(config, path, isDirectory);
-        if (activeFile === path || activeFile.startsWith(path + '/')) {
-          onSelectFile('', true); // clear active file, skip auto save
-        }
-      } catch (e: any) {
-        setError('Failed to delete: ' + e.message);
+    if (isDirectory) {
+      const prefix = path + '/';
+      const toDelete = tree.filter(n => n.type === 'blob' && (n.path.startsWith(prefix) || n.path === path));
+      for (const f of toDelete) {
+         changes[f.path] = { type: 'delete' };
+         removeLocalFile(f.path);
+         localStorage.removeItem('file:' + f.path);
       }
-      loadTree();
+      setTree(prev => prev.filter(n => !(n.path === path || n.path.startsWith(prefix))));
     } else {
-       if (activeFile === path || activeFile.startsWith(path + '/')) {
-          onSelectFile('', true); // clear active file, skip auto save
-       }
-       loadTree();
+      changes[path] = { type: 'delete' };
+      setTree(prev => prev.filter(n => n.path !== path));
+    }
+    
+    onStageChange?.(changes);
+
+    if (activeFile === path || activeFile.startsWith(path + '/')) {
+      onSelectFile('', true); // clear active file, skip auto save
     }
   };
 
@@ -160,32 +171,69 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
     if (sourcePath === newPath) return;
     setLoading(true);
     try {
-      const isLocalOnly = !tree.some(n => (n.path === sourcePath || n.path.startsWith(sourcePath + '/')) && !getLocalFiles().includes(n.path));
-      
-      if (!isLocalOnly && config.githubToken && config.repoUrl) {
-        await renamePathInGithub(config, sourcePath, newPath, isDirectory);
-      }
-      
-      // Update local storage
+      const changes: any = {};
       const localFiles = getLocalFiles();
-      for (const f of localFiles) {
-        if (f === sourcePath || f.startsWith(sourcePath + '/')) {
-          const destFile = f === sourcePath ? newPath : newPath + f.slice(sourcePath.length);
-          const content = localStorage.getItem('file:' + f);
-          if (content !== null) {
-            localStorage.setItem('file:' + destFile, content);
-            localStorage.removeItem('file:' + f);
+
+      if (isDirectory) {
+        const prefix = sourcePath + '/';
+        const filesToMove = tree.filter(n => n.type === 'blob' && n.path.startsWith(prefix));
+        for (const f of filesToMove) {
+          const oldFilePath = f.path;
+          const newFilePath = newPath + '/' + oldFilePath.substring(prefix.length);
+          
+          changes[oldFilePath] = { type: 'delete' };
+          const localContent = localStorage.getItem('file:' + oldFilePath);
+          if (localContent !== null) {
+            changes[newFilePath] = { type: 'write', content: localContent };
+            localStorage.setItem('file:' + newFilePath, localContent);
+            localStorage.removeItem('file:' + oldFilePath);
+            addLocalFile(newFilePath);
+            removeLocalFile(oldFilePath);
+          } else {
+            changes[newFilePath] = { type: 'write', sha: f.sha };
           }
-          addLocalFile(destFile);
         }
+      } else {
+         changes[sourcePath] = { type: 'delete' };
+         const oldNode = tree.find(n => n.path === sourcePath);
+         const localContent = localStorage.getItem('file:' + sourcePath);
+         if (localContent !== null) {
+            changes[newPath] = { type: 'write', content: localContent };
+            localStorage.setItem('file:' + newPath, localContent);
+            localStorage.removeItem('file:' + sourcePath);
+            addLocalFile(newPath);
+            removeLocalFile(sourcePath);
+         } else if (oldNode) {
+            changes[newPath] = { type: 'write', sha: oldNode.sha };
+         }
       }
-      removeLocalFile(sourcePath);
+
+      onStageChange?.(changes);
+      
+      setTree(prev => {
+        const map = new Map<string, any>();
+        prev.forEach(i => map.set(i.path, i));
+        
+        if (isDirectory) {
+           const prefix = sourcePath + '/';
+           const filesToMove = prev.filter(n => n.type === 'blob' && n.path.startsWith(prefix));
+           for (const f of filesToMove) {
+             map.delete(f.path);
+             const newFilePath = newPath + '/' + f.path.substring(prefix.length);
+             map.set(newFilePath, { ...f, path: newFilePath });
+           }
+        } else {
+           map.delete(sourcePath);
+           const oldNode = map.get(sourcePath) || { type: 'blob' };
+           map.set(newPath, { ...oldNode, path: newPath });
+        }
+        return Array.from(map.values());
+      });
       
       if (activeFile === sourcePath || activeFile.startsWith(sourcePath + '/')) {
          const newActiveFile = activeFile === sourcePath ? newPath : newPath + activeFile.slice(sourcePath.length);
-         onSelectFile(newActiveFile); 
+         onSelectFile(newActiveFile, true); 
       }
-      await loadTree();
     } catch(e: any) {
       setError('Failed to move: ' + e.message);
     }
@@ -207,29 +255,7 @@ export function FileTree({ config, onSelectFile, activeFile }: FileTreeProps) {
     }
 
     setIsRenaming(true);
-    try {
-      const isLocalOnly = !tree.some(n => (n.path === path || n.path.startsWith(path + '/')) && !getLocalFiles().includes(n.path));
-      
-      if (!isLocalOnly && config.githubToken && config.repoUrl) {
-        await renamePathInGithub(config, path, newPath, isDirectory);
-      }
-      
-      // update local storage
-      removeLocalFile(path);
-      const content = localStorage.getItem('file:' + path);
-      if (content !== null) {
-        localStorage.removeItem('file:' + path);
-        localStorage.setItem('file:' + newPath, content);
-      }
-      addLocalFile(newPath);
-      
-      if (activeFile === path || activeFile.startsWith(path + '/')) {
-         onSelectFile(newPath); 
-      }
-      await loadTree();
-    } catch(e: any) {
-      setError('Failed to rename: ' + e.message);
-    }
+    await moveItem(path, newPath, isDirectory);
     setIsRenaming(false);
     setRenamingPath(null);
   };
